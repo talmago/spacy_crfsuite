@@ -1,0 +1,6 @@
+TOKENS = "tokens"
+BILOU_ENTITIES = "bilou_entities"
+NO_ENTITY_TAG = "O"
+POS_TAG = "pos"
+DENSE_FEATURES = "text_dense_features"
+PATTERN = "pattern"
