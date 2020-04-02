@@ -43,7 +43,7 @@ def entity_name_from_tag(tag: Text) -> Text:
 
 
 def bilou_tags_from_offsets(
-    tokens: List[Token], entities: List[Tuple[int, int, Text]], missing: Text = "O",
+    tokens: List[Token], entities: List[Tuple[int, int, Text]], missing: Text = "O"
 ) -> List[Text]:
     """Creates a list of BILOU tags for the given list of tokens and entities.
     Args:

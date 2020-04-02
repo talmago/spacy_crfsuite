@@ -13,6 +13,7 @@ from spacy_crfsuite.bilou import (
     bilou_prefix_from_tag,
 )
 from spacy_crfsuite.constants import TOKENS, PATTERN, DENSE_FEATURES
+from spacy_crfsuite.dense_features import DenseFeatures
 from spacy_crfsuite.tokenizer import Token, SpacyTokenizer
 from spacy_crfsuite.utils import override_defaults
 
@@ -101,6 +102,12 @@ class CRFExtractor:
         model_file_name = os.path.join(model_dir, f"{model_name}.pkl")
         ent_tagger = joblib.load(model_file_name)
         return cls(component_config, ent_tagger)
+
+    def use_dense_features(self) -> bool:
+        for feature_list in self.component_config["features"]:
+            if DENSE_FEATURES in feature_list:
+                return True
+        return False
 
     def persist(self, model_dir: Text, model_name: Text = "crf") -> Optional[Text]:
         """Persist this model into the passed directory.
@@ -455,8 +462,18 @@ class CRFEntityExtractorFactory(object):
 
     def __call__(self, doc):
         tokenizer = SpacyTokenizer(self.nlp)
+        dense_features = DenseFeatures(self.nlp)
         message = {"doc": doc, "text": doc.text}
-        message["tokens"] = tokenizer.tokenize(message, attribute="doc")
+
+        tokens = tokenizer.tokenize(message, attribute="doc")
+        tokenizer.add_cls_token(tokens)
+        message["tokens"] = tokens
+
+        if self.crf_extractor.use_dense_features():
+            text_dense_features = dense_features(message, attribute="doc")
+            if len(text_dense_features) > 0:
+                message["text_dense_features"] = text_dense_features
+
         entities = self.crf_extractor.process(message)
         doc.ents = [
             doc.char_span(

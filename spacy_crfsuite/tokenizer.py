@@ -2,6 +2,10 @@ import logging
 
 from typing import Text, Optional, Any, Dict, List
 
+import spacy
+
+from spacy_crfsuite.constants import CLS_TOKEN
+
 LOG = logging.getLogger("tokenizer")
 
 
@@ -48,19 +52,9 @@ class Token:
         )
 
 
-def _spacy(model_name="en"):
-    import spacy
-
-    try:
-        return spacy.load(model_name)
-    except OSError:
-        LOG.error("fatal: could not load ``spacy`` model: %r", model_name)
-        raise
-
-
 class SpacyTokenizer:
     def __init__(self, nlp=None):
-        self.nlp = nlp or _spacy()
+        self.nlp = nlp or spacy.blank("en")
 
     def tokenize(self, message: Dict, attribute: Text = "text") -> List[Token]:
         doc = message[attribute]
@@ -81,3 +75,9 @@ class SpacyTokenizer:
             return token._.get("tag")
         else:
             return token.tag_
+
+    @staticmethod
+    def add_cls_token(tokens: List[Token]) -> None:
+        # +1 to have a space between the last token and the __cls__ token
+        idx = tokens[-1].end + 1
+        tokens.append(Token(CLS_TOKEN, idx))

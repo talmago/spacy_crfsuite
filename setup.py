@@ -70,7 +70,7 @@ setup(
     author_email=about["__email__"],
     url=about["__url__"],
     packages=find_packages(exclude=["tests", "*.tests", "*.tests.*", "tests.*"]),
-    install_requires=["sklearn-crfsuite", "spacy"],
+    install_requires=["sklearn-crfsuite", "spacy", "joblib"],
     python_requires='>=3',
     include_package_data=True,
     license=about["__license__"],
