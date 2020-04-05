@@ -37,13 +37,15 @@ def read_file(fname) -> List[Dict]:
 
 
 def create_dataset(
-    examples: List[Dict], tokenizer: Optional[SpacyTokenizer] = None
+        examples: List[Dict], tokenizer: Optional[SpacyTokenizer] = None
 ) -> List[List[CRFToken]]:
     dataset = []
     crf_extractor = CRFExtractor()
     tokenizer = tokenizer or SpacyTokenizer()
 
     for example in examples:
+        if not example:
+            continue
         if "tokens" in example:
             pass
         elif "text" in example:
@@ -71,7 +73,8 @@ def read_markdown(s: Text, sections: Optional[List[Text]] = None) -> List[Dict]:
             current_section = header
         elif sections is None or (sections and current_section in sections):
             message = _parse_item(line)
-            training_examples.append(message)
+            if message:
+                training_examples.append(message)
     return training_examples
 
 
