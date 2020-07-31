@@ -1,11 +1,13 @@
 import logging
-import os
+from pathlib import Path
+from typing import Dict, Text, Any, Optional, List, Tuple, NamedTuple, Union
+
+import joblib
 import numpy as np
 import sklearn_crfsuite
-import joblib
-
-from typing import Dict, Text, Any, Optional, List, Tuple, NamedTuple
 from sklearn_crfsuite import CRF, metrics
+from spacy.language import Language
+from spacy.tokens.doc import Doc
 
 from spacy_crfsuite.bilou import (
     entity_name_from_tag,
@@ -53,12 +55,16 @@ class CRFExtractor:
             ],
             ["low", "title", "upper"],
         ],
+        # algorithm
+        "algorithm": "lbfgs",
         # The maximum number of iterations for optimization algorithms.
-        "max_iterations": 100,
+        "max_iter": 1000,
         # weight of the L1 regularization
-        "L1_c": 0.1,
+        "c1": 0.1,
         # weight of the L2 regularization
-        "L2_c": 0.1,
+        "c2": 0.1,
+        # CRF transition
+        "all_possible_transitions": True,
     }
 
     function_dict = {
@@ -84,51 +90,35 @@ class CRFExtractor:
     }
 
     def __init__(
-        self,
-        component_config: Optional[Dict[Text, Any]] = None,
-        ent_tagger: Optional["CRF"] = None,
+            self,
+            component_config: Optional[Dict[Text, Any]] = None,
+            ent_tagger: Optional["CRF"] = None,
     ) -> None:
 
         self.component_config = override_defaults(self.defaults, component_config)
         self.ent_tagger = ent_tagger
 
-    @classmethod
-    def load(
-        cls,
-        model_dir: Text,
-        model_name: Text = "crf",
-        component_config: Optional[Dict[Text, Any]] = None,
-    ) -> "CRFExtractor":
-        model_file_name = os.path.join(model_dir, f"{model_name}.pkl")
-        ent_tagger = joblib.load(model_file_name)
-        return cls(component_config, ent_tagger)
+    def from_disk(self, path: Union[Path, str] = "model.pkl") -> "CRFExtractor":
+        self.ent_tagger = joblib.load(path)
+        return self
 
-    def use_dense_features(self) -> bool:
-        for feature_list in self.component_config["features"]:
-            if DENSE_FEATURES in feature_list:
-                return True
-        return False
-
-    def persist(self, model_dir: Text, model_name: Text = "crf") -> Optional[Text]:
-        """Persist this model into the passed directory.
-        Returns the metadata necessary to load the model again."""
+    def to_disk(self, path: Union[Path, str] = "model.pkl") -> None:
+        """Save model to disk."""
         if not self.ent_tagger:
             return
 
-        model_file_name = os.path.join(model_dir, f"{model_name}.pkl")
-        joblib.dump(self.ent_tagger, model_file_name)
-        return model_file_name
+        joblib.dump(self.ent_tagger, path)
 
     def train(self, training_samples: List[List[CRFToken]]) -> "CRFExtractor":
         """Train the crf tagger based on the training data."""
         X_train = [self._sentence_to_features(sent) for sent in training_samples]
         y_train = [self._sentence_to_labels(sent) for sent in training_samples]
         self.ent_tagger = sklearn_crfsuite.CRF(
-            algorithm="lbfgs",
-            c1=self.component_config["L1_c"],
-            c2=self.component_config["L2_c"],
-            max_iterations=self.component_config["max_iterations"],
-            all_possible_transitions=True,
+            algorithm=self.component_config["algorithm"],
+            c1=self.component_config["c1"],
+            c2=self.component_config["c2"],
+            max_iterations=self.component_config["max_iter"],
+            all_possible_transitions=self.component_config["all_possible_transitions"],
         )
         self.ent_tagger.fit(X_train, y_train)
         return self
@@ -136,8 +126,7 @@ class CRFExtractor:
     def eval(self, eval_samples: List[List[CRFToken]]) -> Optional[Tuple[Any, Text]]:
         """Train the crf tagger based on the training data."""
         if self.ent_tagger is None:
-            LOG.warning("``eval`` was called, but model is empty.")
-            return
+            raise RuntimeError(".eval() was called before .train() ?")
 
         X_test = [self._sentence_to_features(sent) for sent in eval_samples]
         y_test = [self._sentence_to_labels(sent) for sent in eval_samples]
@@ -165,6 +154,12 @@ class CRFExtractor:
         else:
             return []
 
+    def use_dense_features(self) -> bool:
+        for feature_list in self.component_config["features"]:
+            if DENSE_FEATURES in feature_list:
+                return True
+        return False
+
     def most_likely_entity(self, idx: int, entities: List[Any]) -> Tuple[Text, Any]:
         if len(entities) > idx:
             entity_probs = entities[idx]
@@ -185,12 +180,12 @@ class CRFExtractor:
 
     @staticmethod
     def _create_entity_dict(
-        message: Dict,
-        tokens: List[Token],
-        start: int,
-        end: int,
-        entity: str,
-        confidence: float,
+            message: Dict,
+            tokens: List[Token],
+            start: int,
+            end: int,
+            entity: str,
+            confidence: float,
     ) -> Dict[Text, Any]:
 
         _start = tokens[start].start
@@ -198,7 +193,7 @@ class CRFExtractor:
         value = tokens[start].text
         value += "".join(
             [
-                message["text"][tokens[i - 1].end : tokens[i].start] + tokens[i].text
+                message["text"][tokens[i - 1].end: tokens[i].start] + tokens[i].text
                 for i in range(start + 1, end + 1)
             ]
         )
@@ -256,7 +251,7 @@ class CRFExtractor:
         return ent_word_idx, confidence
 
     def _handle_bilou_label(
-        self, word_idx: int, entities: List[Any]
+            self, word_idx: int, entities: List[Any]
     ) -> Tuple[Any, Any, Any]:
         label, confidence = self.most_likely_entity(word_idx, entities)
         entity_label = entity_name_from_tag(label)
@@ -273,7 +268,7 @@ class CRFExtractor:
             return None, None, None
 
     def _from_crf_to_json(
-        self, message: Dict, entities: List[Any]
+            self, message: Dict, entities: List[Any]
     ) -> List[Dict[Text, Any]]:
         tokens = self._tokens_without_cls(message)
         if len(tokens) != len(entities):
@@ -284,7 +279,7 @@ class CRFExtractor:
         return self._convert_bilou_tagging_to_entity_result(message, tokens, entities)
 
     def _convert_bilou_tagging_to_entity_result(
-        self, message: Dict, tokens: List[Token], entities: List[Dict[Text, float]]
+            self, message: Dict, tokens: List[Token], entities: List[Dict[Text, float]]
     ):
         # using the BILOU tagging scheme
         json_ents = []
@@ -351,21 +346,21 @@ class CRFExtractor:
 
     @staticmethod
     def _sentence_to_labels(
-        sentence: List[
-            Tuple[
-                Optional[Text],
-                Optional[Text],
-                Text,
-                Dict[Text, Any],
-                Optional[Dict[str, Any]],
-            ]
-        ],
+            sentence: List[
+                Tuple[
+                    Optional[Text],
+                    Optional[Text],
+                    Text,
+                    Dict[Text, Any],
+                    Optional[Dict[str, Any]],
+                ]
+            ],
     ) -> List[Text]:
 
         return [label for _, _, label, _, _ in sentence]
 
     def from_json_to_crf(
-        self, message: Dict, entity_offsets: List[Tuple[int, int, Text]]
+            self, message: Dict, entity_offsets: List[Tuple[int, int, Text]]
     ) -> List[CRFToken]:
         """Convert json examples to format of underlying crfsuite."""
 
@@ -428,7 +423,7 @@ class CRFExtractor:
         return features_out
 
     def _from_text_to_crf(
-        self, message: Dict, entities: List[Text] = None
+            self, message: Dict, entities: List[Text] = None
     ) -> List[CRFToken]:
         """Takes a sentence and switches it to crfsuite format."""
         crf_format = []
@@ -447,22 +442,41 @@ class CRFExtractor:
         return crf_format
 
 
-class CRFEntityExtractorFactory(object):
-    """pysbd as a spacy component through entrypoints"""
+class CRFEntityExtractor(object):
+    """spaCy v2.0 pipeline component that sets entity annotations
+    based on CRF (Conditional Random Field) estimator.
 
-    def __init__(
-        self, nlp, model_dir: Text, model_name: Text = "crf", component_config=None
-    ):
+
+    See ```CRFExtractor``` for CRF implementation details.
+    """
+
+    name = "crf_entity_extractor"
+
+    def __init__(self, nlp: Language, crf_extractor: Optional[CRFExtractor] = None):
         self.nlp = nlp
-        self.crf_extractor = CRFExtractor.load(
-            model_dir=model_dir,
-            model_name=model_name,
-            component_config=component_config,
-        )
+        self.crf_extractor = crf_extractor
 
-    def __call__(self, doc):
+    def __call__(self, doc: Doc):
+        """Apply the pipeline component on a Doc object and modify it if matches
+        are found. Return the Doc, so it can be processed by the next component
+        in the pipeline, if available.
+
+        References:
+            - ``https://spacy.io/usage/processing-pipelines#component-example2``.
+
+        Args:
+            doc (Doc): spaCy document.
+
+        Returns:
+            doc
+        """
+        if not self.crf_extractor:
+            raise RuntimeError(
+                "`CRFEntityExtractor` was not initialized. "
+                "Did you call `.from_disk()` method ?"
+            )
+
         tokenizer = SpacyTokenizer(self.nlp)
-        dense_features = DenseFeatures(self.nlp)
         message = {"doc": doc, "text": doc.text}
 
         tokens = tokenizer.tokenize(message, attribute="doc")
@@ -470,15 +484,38 @@ class CRFEntityExtractorFactory(object):
         message["tokens"] = tokens
 
         if self.crf_extractor.use_dense_features():
+            dense_features = DenseFeatures(self.nlp)
             text_dense_features = dense_features(message, attribute="doc")
             if len(text_dense_features) > 0:
                 message["text_dense_features"] = text_dense_features
 
-        entities = self.crf_extractor.process(message)
-        doc.ents = [
+        spans = [
             doc.char_span(
                 entity_dict["start"], entity_dict["end"], label=entity_dict["entity"]
             )
-            for entity_dict in entities
+            for entity_dict in self.crf_extractor.process(message)
         ]
+
+        doc.ents = list(doc.ents) + spans
+        for span in spans:
+            # Iterate over all spans and merge them into one token. This is done
+            # after setting the entities – otherwise, it would cause mismatched
+            # indices!
+            span.merge()
+
         return doc
+
+    def from_disk(self, path: Union[Path, str]) -> "CRFEntityExtractor":
+        """Load crf extractor from disk.
+
+        Args:
+            path: path to directory.
+
+        Returns:
+            Component
+        """
+        if not isinstance(path, Path):
+            path = Path(path)
+
+        self.crf_extractor = CRFExtractor().from_disk(path)
+        return self

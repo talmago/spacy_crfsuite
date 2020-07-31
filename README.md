@@ -10,23 +10,18 @@
 
 ## Usage
 
-Spacy usage
+spaCy usage
 
 ```python
-import os
 import spacy
 
-from spacy_crfsuite import CRFEntityExtractorFactory
+from spacy_crfsuite import CRFEntityExtractor
 
-# load spacy language model
 nlp = spacy.blank('en')
-
-# Will look for ``crf.pkl`` in current working dir
-pipe = CRFEntityExtractorFactory(nlp, model_dir=os.getcwd())
+pipe = CRFEntityExtractor(nlp).from_disk("model.pkl")
 nlp.add_pipe(pipe)
 
-# Use CRF to extract entities
-doc = nlp("given we launched L&M a couple of years ago")
+doc = nlp("show mexican restaurents up north")
 for ent in doc.ents:
     print(ent.text, "--", ent.label_)
 ```
@@ -34,13 +29,13 @@ for ent in doc.ents:
 Train a model
 
 ```sh
-python -m spacy_crfsuite.trainer train <TRAIN> --model-dir <MODEL_DIR> --model-name <MODEL_NAME>
+python -m spacy_crfsuite.train <TRAIN> --model-dir <MODEL_DIR> --model-name <MODEL_NAME>
 ```
 
 Evaluate a model
 
 ```sh
-python -m spacy_crfsuite.trainer eval <DEV> --model-dir <MODEL_DIR> --model-name <MODEL_NAME>
+python -m spacy_crfsuite.eval <DEV> --model-dir <MODEL_DIR> --model-name <MODEL_NAME>
 ```
 
 Gold annotations example (markdown)

@@ -1,12 +1,9 @@
-import logging
-
-from typing import Text, Optional, Any, Dict, List
-
 import spacy
 
-from spacy_crfsuite.constants import CLS_TOKEN
+from abc import ABCMeta, abstractmethod
+from typing import Text, Optional, Any, Dict, List
 
-LOG = logging.getLogger("tokenizer")
+from spacy_crfsuite.constants import CLS_TOKEN
 
 
 class Token:
@@ -44,6 +41,7 @@ class Token:
     def __lt__(self, other):
         if not isinstance(other, Token):
             return NotImplemented
+
         return (self.start, self.end, self.text, self.lemma) < (
             other.start,
             other.end,
@@ -52,7 +50,15 @@ class Token:
         )
 
 
-class SpacyTokenizer:
+class Tokenizer:
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def tokenize(self, message: Dict, attribute: Text = "text") -> List[Token]:
+        raise NotImplementedError("should be implemented by subclass")
+
+
+class SpacyTokenizer(Tokenizer):
     def __init__(self, nlp=None):
         self.nlp = nlp or spacy.blank("en")
 
