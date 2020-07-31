@@ -1,54 +1,87 @@
-# spacy_crfsuite: crfsuite entity extraction for spaCy.
+# spacy_crfsuite: CRF entity tagger for spaCy.
 
-`spacy_crfsuite` is an entity extraction pipeline for spaCy based .
+## ✨ Features
 
-## Install
+- **spaCy NER component** for **Conditional Random Field** entity extraction (via [sklearn-crfsuite](https://github.com/TeamHG-Memex/sklearn-crfsuite)).
+- train & eval command line and example notebook.
+- supports **JSON, CoNLL and [Markdown annotations](https://rasa.com/docs/rasa/nlu/training-data-format/#id5)** 
+
+## Installation
 
 **Python**
 
     pip install spacy_crfsuite
 
-## Usage
+## 🚀 Quickstart
 
-Spacy usage
+### Usage as a spaCy pipeline component
+
+spaCy pipeline
 
 ```python
-import os
 import spacy
 
-from spacy_crfsuite import CRFEntityExtractorFactory
+from spacy_crfsuite import CRFEntityExtractor
 
-# load spacy language model
 nlp = spacy.blank('en')
-
-# Will look for ``crf.pkl`` in current working dir
-pipe = CRFEntityExtractorFactory(nlp, model_dir=os.getcwd())
+pipe = CRFEntityExtractor(nlp).from_disk("model.pkl")
 nlp.add_pipe(pipe)
 
-# Use CRF to extract entities
-doc = nlp("given we launched L&M a couple of years ago")
+doc = nlp("show mexican restaurents up north")
 for ent in doc.ents:
     print(ent.text, "--", ent.label_)
+
+# Output:
+# mexican -- cuisine
+# north -- location
 ```
 
-Train a model
+Follow this example [notebook](https://github.com/talmago/spacy_crfsuite/blob/master/examples/example.ipynb) 
+to train the CRF entity tagger from few [restaurant search examples](https://github.com/talmago/spacy_crfsuite/blob/master/examples/example.md).
+
+
+## Train & evaluate CRF entity tagger
+
+Set up configuration file
 
 ```sh
-python -m spacy_crfsuite.trainer train <TRAIN> --model-dir <MODEL_DIR> --model-name <MODEL_NAME>
+$ cat << EOF > config.json
+{"c1": 0.03, "c2": 0.06}
+EOF
 ```
 
-Evaluate a model
+Run training
 
 ```sh
-python -m spacy_crfsuite.trainer eval <DEV> --model-dir <MODEL_DIR> --model-name <MODEL_NAME>
+$ python -m spacy_crfsuite.train examples/example.md -o model/ -c config.json
+ℹ Loading config: config.json
+ℹ Training CRF entity tagger with 15 examples.
+ℹ Saving model to disk
+✔ Successfully saved model to file.
+/Users/talmago/git/spacy_crfsuite/model/model.pkl
 ```
 
-Gold annotations example (markdown)
+Evaluate on a dataset
 
-```md
-## Header
-- what is my balance <!-- no entity -->
-- how much do I have on my [savings](source_account) <!-- entity "source_account" has value "savings" -->
-- how much do I have on my [savings account](source_account:savings) <!-- synonyms, method 1-->
-- Could I pay in [yen](currency)?  <!-- entity matched by lookup table -->
+```sh
+$ python -m spacy_crfsuite.eval examples/example.md -m model/model.pkl
+ℹ Loading model from file
+model/model.pkl
+✔ Successfully loaded CRF tagger
+<spacy_crfsuite.crf_extractor.CRFExtractor object at 0x126e5f438>
+ℹ Loading dev dataset from file
+examples/example.md
+✔ Successfully loaded 15 dev examples.
+⚠ f1 score: 1.0
+              precision    recall  f1-score   support
+
+           -      1.000     1.000     1.000         2
+   B-cuisine      1.000     1.000     1.000         1
+   L-cuisine      1.000     1.000     1.000         1
+   U-cuisine      1.000     1.000     1.000         5
+  U-location      1.000     1.000     1.000         2
+
+   micro avg      1.000     1.000     1.000        11
+   macro avg      1.000     1.000     1.000        11
+weighted avg      1.000     1.000     1.000        11
 ```

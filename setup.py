@@ -90,6 +90,6 @@ setup(
         'upload': UploadCommand,
     },
     entry_points={
-        "spacy_factories": ["spacy_crfsuite = spacy_crfsuite.crf_extractor:CRFEntityExtractorFactory"]
+        "spacy_factories": ["spacy_crfsuite = spacy_crfsuite.crf_extractor:CRFEntityExtractor"]
     }
 )

@@ -1,2 +1,2 @@
 from .about import *
-from .crf_extractor import CRFExtractor, CRFToken, CRFEntityExtractorFactory
+from .crf_extractor import CRFExtractor, CRFToken, CRFEntityExtractor

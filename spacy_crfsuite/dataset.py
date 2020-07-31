@@ -7,7 +7,7 @@ from typing import List, Dict, Optional, Text
 
 from spacy_crfsuite.bilou import get_entity_offsets
 from spacy_crfsuite.crf_extractor import CRFToken, CRFExtractor
-from spacy_crfsuite.tokenizer import SpacyTokenizer
+from spacy_crfsuite.tokenizer import SpacyTokenizer, Tokenizer
 
 LOG = logging.getLogger("dataset")
 
@@ -37,12 +37,13 @@ def read_file(fname) -> List[Dict]:
 
 
 def create_dataset(
-        examples: List[Dict], tokenizer: Optional[SpacyTokenizer] = None
+    examples: List[Dict], tokenizer: Optional[SpacyTokenizer] = None
 ) -> List[List[CRFToken]]:
     dataset = []
-    crf_extractor = CRFExtractor()
     tokenizer = tokenizer or SpacyTokenizer()
+    assert isinstance(tokenizer, Tokenizer)
 
+    crf_extractor = CRFExtractor()
     for example in examples:
         if not example:
             continue
@@ -53,7 +54,6 @@ def create_dataset(
         else:
             LOG.warning("Empty message: %s", example)
             continue
-
         entity_offsets = get_entity_offsets(example)
         entities = crf_extractor.from_json_to_crf(example, entity_offsets)
         dataset.append(entities)
