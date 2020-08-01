@@ -90,9 +90,9 @@ class CRFExtractor:
     }
 
     def __init__(
-            self,
-            component_config: Optional[Dict[Text, Any]] = None,
-            ent_tagger: Optional["CRF"] = None,
+        self,
+        component_config: Optional[Dict[Text, Any]] = None,
+        ent_tagger: Optional["CRF"] = None,
     ) -> None:
 
         self.component_config = override_defaults(self.defaults, component_config)
@@ -180,12 +180,12 @@ class CRFExtractor:
 
     @staticmethod
     def _create_entity_dict(
-            message: Dict,
-            tokens: List[Token],
-            start: int,
-            end: int,
-            entity: str,
-            confidence: float,
+        message: Dict,
+        tokens: List[Token],
+        start: int,
+        end: int,
+        entity: str,
+        confidence: float,
     ) -> Dict[Text, Any]:
 
         _start = tokens[start].start
@@ -193,7 +193,7 @@ class CRFExtractor:
         value = tokens[start].text
         value += "".join(
             [
-                message["text"][tokens[i - 1].end: tokens[i].start] + tokens[i].text
+                message["text"][tokens[i - 1].end : tokens[i].start] + tokens[i].text
                 for i in range(start + 1, end + 1)
             ]
         )
@@ -251,7 +251,7 @@ class CRFExtractor:
         return ent_word_idx, confidence
 
     def _handle_bilou_label(
-            self, word_idx: int, entities: List[Any]
+        self, word_idx: int, entities: List[Any]
     ) -> Tuple[Any, Any, Any]:
         label, confidence = self.most_likely_entity(word_idx, entities)
         entity_label = entity_name_from_tag(label)
@@ -268,7 +268,7 @@ class CRFExtractor:
             return None, None, None
 
     def _from_crf_to_json(
-            self, message: Dict, entities: List[Any]
+        self, message: Dict, entities: List[Any]
     ) -> List[Dict[Text, Any]]:
         tokens = self._tokens_without_cls(message)
         if len(tokens) != len(entities):
@@ -279,7 +279,7 @@ class CRFExtractor:
         return self._convert_bilou_tagging_to_entity_result(message, tokens, entities)
 
     def _convert_bilou_tagging_to_entity_result(
-            self, message: Dict, tokens: List[Token], entities: List[Dict[Text, float]]
+        self, message: Dict, tokens: List[Token], entities: List[Dict[Text, float]]
     ):
         # using the BILOU tagging scheme
         json_ents = []
@@ -346,21 +346,21 @@ class CRFExtractor:
 
     @staticmethod
     def _sentence_to_labels(
-            sentence: List[
-                Tuple[
-                    Optional[Text],
-                    Optional[Text],
-                    Text,
-                    Dict[Text, Any],
-                    Optional[Dict[str, Any]],
-                ]
-            ],
+        sentence: List[
+            Tuple[
+                Optional[Text],
+                Optional[Text],
+                Text,
+                Dict[Text, Any],
+                Optional[Dict[str, Any]],
+            ]
+        ],
     ) -> List[Text]:
 
         return [label for _, _, label, _, _ in sentence]
 
     def from_json_to_crf(
-            self, message: Dict, entity_offsets: List[Tuple[int, int, Text]]
+        self, message: Dict, entity_offsets: List[Tuple[int, int, Text]]
     ) -> List[CRFToken]:
         """Convert json examples to format of underlying crfsuite."""
 
@@ -423,7 +423,7 @@ class CRFExtractor:
         return features_out
 
     def _from_text_to_crf(
-            self, message: Dict, entities: List[Text] = None
+        self, message: Dict, entities: List[Text] = None
     ) -> List[CRFToken]:
         """Takes a sentence and switches it to crfsuite format."""
         crf_format = []
@@ -436,9 +436,7 @@ class CRFExtractor:
             dense_features = (
                 text_dense_features[i] if text_dense_features is not None else []
             )
-            crf_format.append(
-                CRFToken(token.text, tag, entity, pattern, dense_features)
-            )
+            crf_format.append(CRFToken(token.text, tag, entity, pattern, dense_features))
         return crf_format
 
 

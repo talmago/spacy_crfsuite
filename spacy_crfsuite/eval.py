@@ -4,7 +4,7 @@ import warnings
 
 from wasabi import msg
 
-warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action="ignore", category=FutureWarning)
 
 from spacy_crfsuite import CRFExtractor
 from spacy_crfsuite.dataset import read_file, create_dataset
@@ -30,9 +30,7 @@ def main(in_file, model_file=None, config_file=None):
 
     model_file = model_file or "model.pkl"
     msg.info("Loading model from file", model_file)
-    crf_extractor = CRFExtractor(component_config=component_config).from_disk(
-        model_file
-    )
+    crf_extractor = CRFExtractor(component_config=component_config).from_disk(model_file)
     msg.good("Successfully loaded CRF tagger", crf_extractor)
 
     msg.info("Loading dev dataset from file", in_file)
