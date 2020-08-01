@@ -1,6 +1,6 @@
 import pytest
 
-from spacy_crfsuite.dataset import read_markdown
+from spacy_crfsuite.utils import MarkdownReader
 
 
 @pytest.fixture()
@@ -13,7 +13,9 @@ def markdown_fmt():
 
 
 def test_read_markdown(markdown_fmt):
-    assert read_markdown(markdown_fmt) == [
+    md_reader = MarkdownReader()
+
+    assert md_reader(markdown_fmt) == [
         {'entities': [], 'text': 'what is my balance'},
         {'entities': [{'end': 32,
                        'entity': 'source_account',
