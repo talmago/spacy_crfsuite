@@ -111,15 +111,18 @@ class CRFExtractor:
 
     def train(self, training_samples: List[List[CRFToken]]) -> "CRFExtractor":
         """Train the crf tagger based on the training data."""
+        if self.ent_tagger is None:
+            self.ent_tagger = sklearn_crfsuite.CRF(
+                algorithm=self.component_config["algorithm"],
+                c1=self.component_config["c1"],
+                c2=self.component_config["c2"],
+                max_iterations=self.component_config["max_iter"],
+                all_possible_transitions=self.component_config[
+                    "all_possible_transitions"
+                ],
+            )
         X_train = [self._sentence_to_features(sent) for sent in training_samples]
         y_train = [self._sentence_to_labels(sent) for sent in training_samples]
-        self.ent_tagger = sklearn_crfsuite.CRF(
-            algorithm=self.component_config["algorithm"],
-            c1=self.component_config["c1"],
-            c2=self.component_config["c2"],
-            max_iterations=self.component_config["max_iter"],
-            all_possible_transitions=self.component_config["all_possible_transitions"],
-        )
         self.ent_tagger.fit(X_train, y_train)
         return self
 

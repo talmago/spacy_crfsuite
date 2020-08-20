@@ -64,25 +64,36 @@ def to_crfsuite(
         None,
         str,
     ),
+    model_file=("Path to model file", "option", "m", str),
     out_dir=("Path to output directory", "option", "o", str),
     config_file=("Path to config file (.json format)", "option", "c", str),
 )
-def main(in_file, out_dir=None, config_file=None):
+def main(in_file, out_dir=None, model_file=None, config_file=None):
     """Train CRF entity tagger."""
     if config_file:
-        msg.info(f"Loading config: {config_file}")
+        msg.info("Loading config from disk")
         component_config = srsly.read_json(config_file)
+        msg.good("Successfully loaded config from file.", config_file)
     else:
         component_config = None
 
-    train_examples = read_examples(in_file)
-    num_train_examples = len(train_examples)
-
-    msg.info(f"Training CRF entity tagger with {num_train_examples} examples.")
     crf_extractor = CRFExtractor(component_config=component_config)
 
-    train_dataset = to_crfsuite(train_examples, crf_extractor=crf_extractor)
-    crf_extractor.train(train_dataset)
+    if model_file is not None:
+        msg.info(f"Loading model from disk.")
+        crf_extractor = crf_extractor.from_disk(model_file)
+        msg.good("Successfully loaded model from file.", model_file)
+
+    msg.info("Loading training examples.")
+    train_examples = read_examples(in_file)
+    msg.good(
+        f"Successfully loaded {len(train_examples)} training examples from file.",
+        in_file,
+    )
+
+    train_crf_examples = to_crfsuite(train_examples, crf_extractor=crf_extractor)
+    msg.info("Training entity tagger with CRF.")
+    crf_extractor.train(train_crf_examples)
 
     model_path = pathlib.Path(out_dir or ".").resolve() / "model.pkl"
     msg.info("Saving model to disk")
