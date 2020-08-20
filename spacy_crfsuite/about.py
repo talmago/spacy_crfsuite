@@ -1,5 +1,5 @@
 __title__ = "spacy_crfsuite"
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 __summary__ = "spaCy pipeline component for CRF entity extraction"
 __author__ = "Tal Almagor"
 __email__ = "almagoric@gmail.com"
