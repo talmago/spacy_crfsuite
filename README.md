@@ -36,7 +36,7 @@ for ent in doc.ents:
 # north -- location
 ```
 
-Follow this example [notebook](https://github.com/talmago/spacy_crfsuite/blob/master/examples/example.ipynb) 
+Follow this example [notebook](https://github.com/talmago/spacy_crfsuite/blob/master/examples/01%20-%20Custom%20Component.ipynb) 
 to train the CRF entity tagger from few [restaurant search examples](https://github.com/talmago/spacy_crfsuite/blob/master/examples/data/example.md).
 
 
@@ -53,7 +53,7 @@ EOF
 Run training
 
 ```sh
-$ python -m spacy_crfsuite.train examples/example.md -o model/ -c config.json
+$ python -m spacy_crfsuite.train examples/data/example.md -o model/ -c config.json
 ℹ Loading config: config.json
 ℹ Training CRF entity tagger with 15 examples.
 ℹ Saving model to disk
@@ -64,7 +64,7 @@ $ python -m spacy_crfsuite.train examples/example.md -o model/ -c config.json
 Evaluate on a dataset
 
 ```sh
-$ python -m spacy_crfsuite.eval examples/example.md -m model/model.pkl
+$ python -m spacy_crfsuite.eval examples/data/example.md -m model/model.pkl
 ℹ Loading model from file
 model/model.pkl
 ✔ Successfully loaded CRF tagger
@@ -75,13 +75,13 @@ examples/example.md
 ⚠ f1 score: 1.0
               precision    recall  f1-score   support
 
-           -      1.000     1.000     1.000         2
-   B-cuisine      1.000     1.000     1.000         1
-   L-cuisine      1.000     1.000     1.000         1
+   B-cuisine      1.000     1.000     1.000         2
+   I-cuisine      1.000     1.000     1.000         1
+   L-cuisine      1.000     1.000     1.000         2
    U-cuisine      1.000     1.000     1.000         5
-  U-location      1.000     1.000     1.000         2
+  U-location      1.000     1.000     1.000         7
 
-   micro avg      1.000     1.000     1.000        11
-   macro avg      1.000     1.000     1.000        11
-weighted avg      1.000     1.000     1.000        11
+   micro avg      1.000     1.000     1.000        17
+   macro avg      1.000     1.000     1.000        17
+weighted avg      1.000     1.000     1.000        17
 ```

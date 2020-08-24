@@ -1,13 +1,14 @@
-import logging
 from pathlib import Path
 from typing import Dict, Text, Any, Optional, List, Tuple, NamedTuple, Union
 
 import joblib
 import numpy as np
 import sklearn_crfsuite
+
 from sklearn_crfsuite import CRF, metrics
 from spacy.language import Language
 from spacy.tokens.doc import Doc
+from wasabi import msg
 
 from spacy_crfsuite.bilou import (
     entity_name_from_tag,
@@ -19,8 +20,6 @@ from spacy_crfsuite.constants import TOKENS, PATTERN, DENSE_FEATURES
 from spacy_crfsuite.dense_features import DenseFeatures
 from spacy_crfsuite.tokenizer import Token, SpacyTokenizer, Tokenizer
 from spacy_crfsuite.utils import override_defaults
-
-LOG = logging.getLogger("crf")
 
 
 class CRFToken(NamedTuple):
@@ -230,7 +229,7 @@ class CRFExtractor:
 
             if label[2:] != entity_label:
                 # words are not tagged the same entity class
-                LOG.debug(
+                msg.debug(
                     "Inconsistent BILOU tagging found, B- tag, L- "
                     "tag pair encloses multiple entity classes.i.e. "
                     "[B-a, I-b, L-a] instead of [B-a, I-a, L-a].\n"
@@ -247,7 +246,7 @@ class CRFExtractor:
                 # entity not closed by an L- tag
                 finished = True
                 ent_word_idx -= 1
-                LOG.debug(
+                msg.debug(
                     "Inconsistent BILOU tagging found, B- tag not "
                     "closed by L- tag, i.e [B-a, I-a, O] instead of "
                     "[B-a, L-a, O].\nAssuming last tag is L-"
@@ -378,7 +377,7 @@ class CRFExtractor:
                 collected.append(t)
             elif collected:
                 collected_text = " ".join([t.text for t in collected])
-                LOG.warning(
+                msg.warn(
                     f"Misaligned entity annotation for '{collected_text}' "
                     f"in sentence '{message.text}' with intent "
                     f"'{message.get('intent')}'. "
@@ -406,7 +405,7 @@ class CRFExtractor:
 
         tokens = message.get(TOKENS, [])
         if len(tokens) != len(features):
-            LOG.warning(
+            msg.warning(
                 f"Number of features ({len(features)}) for attribute "
                 f"'{DENSE_FEATURES}' "
                 f"does not match number of tokens ({len(tokens)}). Set "
@@ -472,7 +471,9 @@ def to_crfsuite(
         if "tokens" in example:
             pass
         elif "text" in example:
-            example["tokens"] = tokenizer.tokenize(example, attribute="text")
+            tokens = tokenizer.tokenize(example, attribute="text")
+            tokenizer.add_cls_token(tokens)
+            example["tokens"] = tokens
         else:
             try:
                 from wasabi import msg
