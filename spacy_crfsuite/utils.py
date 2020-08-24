@@ -38,17 +38,25 @@ def read_examples(path: Union[Path, str]) -> List[Dict]:
     ext = path.suffix.lower()
 
     if ext == ".json":
+        # JSON format is the standard ...
         return list(srsly.read_json(path))
 
     elif ext == ".jsonl":
+        # same here ..
         return list(srsly.read_jsonl(path))
 
     elif ext in (".md", ".markdown"):
         from spacy_crfsuite.markdown import MarkdownReader
 
+        # convert MD to JSON format
         with path.open("r", encoding="utf-8") as f:
             md_reader = MarkdownReader()
             return md_reader(f.read())
+
+    elif ext.startswith(".conll"):
+        from spacy_crfsuite.conll import read_conll
+
+        return list(read_conll(path))
 
     else:
         raise ValueError(f"expected a JSON / Markdown, got {ext}.")

@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Union, Generator
 
+from spacy_crfsuite.bilou import bilou_prefix_from_tag
 from spacy_crfsuite.tokenizer import Token
 
 
@@ -18,29 +19,36 @@ def read_conll(loc: Union[str, Path]) -> Generator:
     assert isinstance(loc, Path)
 
     with Path(loc).open(encoding="utf8") as file_:
-        sent_strs = file_.read().strip().split("\n\n")
+        sent_strs = file_.read().strip().replace("\n  \n", "\n\n").split("\n\n")
 
     for sent_str in sent_strs:
-        lines = [li.split() for li in sent_str.split("\n") if not li.startswith("#")]
         tokens = []
-        labels = []
+        entities = []
+        idx = 0
+        lines = [li.split() for li in sent_str.split("\n") if not li.startswith("#")]
         for i, pieces in enumerate(lines):
             lemma = None
-            if len(pieces) == 4:
-                word, pos, head, label = pieces
+            if len(pieces) == 3:  # conll_02
+                word, pos, tag = pieces
+            elif len(pieces) == 4:  # conll_03
+                word, pos, pos2, tag = pieces
             else:
-                idx, word, lemma, pos1, pos, morph, head, label, _, _2 = pieces
-            if "-" in idx:
                 continue
             token = Token(word, idx, lemma=lemma, data={"pos": pos})
             tokens.append(token)
-            tags.append(label)
-        yield tokens, labels
+            idx += len(word) + 1
+            if bilou_prefix_from_tag(tag):
+                entities.append(
+                    {
+                        "value": token.text,
+                        "entity": tag,
+                        "start": token.start,
+                        "end": token.end,
+                    }
+                )
 
-
-if __name__ == "__main__":
-    for words, tags in read_conll(
-        "/Users/talmago/git/entitytargeting/data/conll/train.conll"
-    ):
-        print(words)
-        break
+        yield {
+            "text": " ".join(token.text for token in tokens),
+            "tokens": tokens,
+            "entities": entities,
+        }
