@@ -37,7 +37,7 @@ for ent in doc.ents:
 ```
 
 Follow this example [notebook](https://github.com/talmago/spacy_crfsuite/blob/master/examples/example.ipynb) 
-to train the CRF entity tagger from few [restaurant search examples](https://github.com/talmago/spacy_crfsuite/blob/master/examples/example.md).
+to train the CRF entity tagger from few [restaurant search examples](https://github.com/talmago/spacy_crfsuite/blob/master/examples/data/example.md).
 
 
 ## Train & evaluate CRF entity tagger
