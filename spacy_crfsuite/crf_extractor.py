@@ -8,7 +8,6 @@ import sklearn_crfsuite
 from sklearn_crfsuite import CRF, metrics
 from spacy.language import Language
 from spacy.tokens.doc import Doc
-from wasabi import msg
 
 from spacy_crfsuite.bilou import (
     entity_name_from_tag,
@@ -16,6 +15,8 @@ from spacy_crfsuite.bilou import (
     bilou_prefix_from_tag,
     get_entity_offsets,
 )
+
+from spacy_crfsuite.compat import msg
 from spacy_crfsuite.constants import TOKENS, PATTERN, DENSE_FEATURES
 from spacy_crfsuite.dense_features import DenseFeatures
 from spacy_crfsuite.tokenizer import Token, SpacyTokenizer, Tokenizer
@@ -78,9 +79,7 @@ class CRFExtractor:
         "suffix1": lambda crf_token: crf_token.text[-1:],
         "bias": lambda crf_token: "bias",
         "pos": lambda crf_token: crf_token.tag,
-        "pos2": lambda crf_token: crf_token.tag[:2]
-        if crf_token.tag is not None
-        else None,
+        "pos2": lambda crf_token: crf_token.tag[:2] if crf_token.tag is not None else None,
         "upper": lambda crf_token: crf_token.text.isupper(),
         "digit": lambda crf_token: crf_token.text.isdigit(),
         "pattern": lambda crf_token: crf_token.pattern
@@ -117,9 +116,7 @@ class CRFExtractor:
                 c1=self.component_config["c1"],
                 c2=self.component_config["c2"],
                 max_iterations=self.component_config["max_iter"],
-                all_possible_transitions=self.component_config[
-                    "all_possible_transitions"
-                ],
+                all_possible_transitions=self.component_config["all_possible_transitions"],
             )
         X_train = [self._sentence_to_features(sent) for sent in training_samples]
         y_train = [self._sentence_to_labels(sent) for sent in training_samples]
@@ -139,9 +136,7 @@ class CRFExtractor:
         sorted_labels = sorted(labels, key=lambda name: (name[1:], name[0]))
 
         y_pred = self.ent_tagger.predict(X_test)
-        f1_score = metrics.flat_f1_score(
-            y_test, y_pred, average="weighted", labels=labels
-        )
+        f1_score = metrics.flat_f1_score(y_test, y_pred, average="weighted", labels=labels)
         classification_report = metrics.flat_classification_report(
             y_test, y_pred, labels=sorted_labels, digits=3
         )
@@ -174,10 +169,7 @@ class CRFExtractor:
             # of the B, I, L and U tags for an entity (so if we have a
             # score of 60% for `B-address` and 40% and 30%
             # for `I-address`, we will return 70%)
-            return (
-                label,
-                sum([v for k, v in entity_probs.items() if k[2:] == label[2:]]),
-            )
+            return (label, sum([v for k, v in entity_probs.items() if k[2:] == label[2:]]))
         else:
             return "", 0.0
 
@@ -229,7 +221,7 @@ class CRFExtractor:
 
             if label[2:] != entity_label:
                 # words are not tagged the same entity class
-                msg.debug(
+                msg and msg.debug(
                     "Inconsistent BILOU tagging found, B- tag, L- "
                     "tag pair encloses multiple entity classes.i.e. "
                     "[B-a, I-b, L-a] instead of [B-a, I-a, L-a].\n"
@@ -246,7 +238,7 @@ class CRFExtractor:
                 # entity not closed by an L- tag
                 finished = True
                 ent_word_idx -= 1
-                msg.debug(
+                msg and msg.debug(
                     "Inconsistent BILOU tagging found, B- tag not "
                     "closed by L- tag, i.e [B-a, I-a, O] instead of "
                     "[B-a, L-a, O].\nAssuming last tag is L-"
@@ -377,10 +369,9 @@ class CRFExtractor:
                 collected.append(t)
             elif collected:
                 collected_text = " ".join([t.text for t in collected])
-                msg.warn(
+                msg and msg.warn(
                     f"Misaligned entity annotation for '{collected_text}' "
-                    f"in sentence '{message.text}' with intent "
-                    f"'{message.get('intent')}'. "
+                    f"in sentence: \"{message['text']}\". "
                     f"Make sure the start and end values of the "
                     f"annotated training examples end at token "
                     f"boundaries (e.g. don't include trailing "
@@ -405,7 +396,7 @@ class CRFExtractor:
 
         tokens = message.get(TOKENS, [])
         if len(tokens) != len(features):
-            msg.warning(
+            msg and msg.warning(
                 f"Number of features ({len(features)}) for attribute "
                 f"'{DENSE_FEATURES}' "
                 f"does not match number of tokens ({len(tokens)}). Set "
@@ -418,8 +409,7 @@ class CRFExtractor:
         features_out = []
         for feature in features:
             feature_dict = {
-                str(index): token_features
-                for index, token_features in enumerate(feature)
+                str(index): token_features for index, token_features in enumerate(feature)
             }
             converted = {DENSE_FEATURES: feature_dict}
             features_out.append(converted)
@@ -475,12 +465,7 @@ def to_crfsuite(
             tokenizer.add_cls_token(tokens)
             example["tokens"] = tokens
         else:
-            try:
-                from wasabi import msg
-
-                msg.warn(f"Empty example: {example}")
-            except ImportError:
-                pass
+            msg and msg.warn(f"Empty example: {example}")
             continue
         entity_offsets = get_entity_offsets(example)
         entities = crf_extractor.from_json_to_crf(example, entity_offsets)

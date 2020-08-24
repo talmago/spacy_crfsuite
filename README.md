@@ -40,7 +40,7 @@ Follow this example [notebook](https://github.com/talmago/spacy_crfsuite/blob/ma
 to train the CRF entity tagger from few [restaurant search examples](https://github.com/talmago/spacy_crfsuite/blob/master/examples/data/example.md).
 
 
-## Train & evaluate CRF entity tagger
+### Train & evaluate custom CRF tagger
 
 Set up configuration file
 
@@ -84,4 +84,25 @@ examples/example.md
    micro avg      1.000     1.000     1.000        17
    macro avg      1.000     1.000     1.000        17
 weighted avg      1.000     1.000     1.000        17
+```
+
+
+## Development
+
+Set up pip & virtualenv
+
+```sh
+$ pipenv sync -d
+```
+
+Run unit test
+
+```sh
+$ pipenv run pytest
+```
+
+Run black (code formatter)
+
+```sh
+$ pipenv run black spacy_crfsuite/ --config=pyproject.toml
 ```

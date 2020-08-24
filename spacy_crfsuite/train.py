@@ -9,12 +9,7 @@ from spacy_crfsuite.utils import read_examples
 
 
 @plac.annotations(
-    in_file=(
-        "Path to input file (either .json, .md or .conll)",
-        "positional",
-        None,
-        str,
-    ),
+    in_file=("Path to input file (either .json, .md or .conll)", "positional", None, str),
     model_file=("Path to model file", "option", "m", str),
     out_dir=("Path to output directory", "option", "o", str),
     config_file=("Path to config file (.json format)", "option", "c", str),
@@ -38,8 +33,7 @@ def main(in_file, out_dir=None, model_file=None, config_file=None):
     msg.info("Loading training examples.")
     train_examples = read_examples(in_file)
     msg.good(
-        f"Successfully loaded {len(train_examples)} training examples from file.",
-        in_file,
+        f"Successfully loaded {len(train_examples)} training examples from file.", in_file
     )
 
     train_crf_examples = to_crfsuite(train_examples, crf_extractor=crf_extractor)

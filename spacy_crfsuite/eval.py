@@ -12,12 +12,7 @@ from spacy_crfsuite.utils import read_examples
 
 
 @plac.annotations(
-    in_file=(
-        "Path to input file (either .json, .md or .conll)",
-        "positional",
-        None,
-        str,
-    ),
+    in_file=("Path to input file (either .json, .md or .conll)", "positional", None, str),
     model_file=("Path to model file", "option", "m", str),
     config_file=("Path to config file (.json format)", "option", "c", str),
 )
