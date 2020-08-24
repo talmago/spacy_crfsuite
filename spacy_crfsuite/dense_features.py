@@ -1,7 +1,9 @@
 import numpy as np
 import spacy
 
-from typing import Text, Dict, Any
+from typing import Text, Dict, Any, Optional
+
+from spacy.language import Language
 
 from spacy_crfsuite.constants import DENSE_FEATURES
 
@@ -12,7 +14,7 @@ class Pooling:
 
 
 class DenseFeatures:
-    def __init__(self, nlp, pooling: Text = Pooling.MEAN):
+    def __init__(self, nlp: Optional[Language] = None, pooling: Text = Pooling.MEAN):
         assert pooling in (Pooling.MEAN, Pooling.MAX)
 
         self.pooling = pooling

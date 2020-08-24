@@ -1,6 +1,6 @@
 import pytest
 
-from spacy_crfsuite.utils import MarkdownReader
+from spacy_crfsuite.markdown import MarkdownReader
 
 
 @pytest.fixture()

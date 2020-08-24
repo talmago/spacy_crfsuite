@@ -429,48 +429,59 @@ class CRFExtractor:
             dense_features = (
                 text_dense_features[i] if text_dense_features is not None else []
             )
-            crf_format.append(CRFToken(token.text, tag, entity, pattern, dense_features))
+            crf_token = CRFToken(token.text, tag, entity, pattern, dense_features)
+            crf_format.append(crf_token)
         return crf_format
 
 
-def to_crfsuite(
-    examples: List[Dict],
-    crf_extractor: Optional[CRFExtractor] = None,
-    tokenizer: Optional[SpacyTokenizer] = None,
-) -> List[List[CRFToken]]:
-    """Translate training examples to CRF features.
+def prepare_example(
+    example: Dict,
+    crf_extractor: CRFExtractor,
+    tokenizer: Tokenizer,
+    dense_features: Optional[DenseFeatures] = None,
+) -> Optional[List[CRFToken]]:
+    """Translate training example to CRF feature space.
 
     Args:
-        examples (list): training examples.
-        crf_extractor (CRFExtractor): crf component.
-        tokenizer (Tokenizer): optional, tokenizer. Default is `SpacyTokenizer`.
+        example (dict): example dict. must have either "doc", "tokens" or "text" field.
+        crf_extractor (CRFExtractor): CRF component.
+        tokenizer (Tokenizer): tokenizer.
+        dense_features (DenseFeatures): dense features.
 
     Returns:
-        List[List[CRFToken]], CRF dataset.
+        List[CRFToken], CRF example.
     """
-    tokenizer = tokenizer or SpacyTokenizer()
-    assert isinstance(tokenizer, Tokenizer)
+    if not example:
+        return
 
-    crf_extractor = crf_extractor or CRFExtractor()
-    assert isinstance(crf_extractor, CRFExtractor)
+    if "tokens" in example:
+        pass
 
-    dataset = []
-    for example in examples:
-        if not example:
-            continue
-        if "tokens" in example:
-            pass
-        elif "text" in example:
-            tokens = tokenizer.tokenize(example, attribute="text")
+    elif "doc" in example:
+        tokens = tokenizer.tokenize(example, attribute="doc")
+        if isinstance(tokenizer, SpacyTokenizer):
             tokenizer.add_cls_token(tokens)
-            example["tokens"] = tokens
-        else:
-            msg and msg.warn(f"Empty example: {example}")
-            continue
-        entity_offsets = get_entity_offsets(example)
-        entities = crf_extractor.from_json_to_crf(example, entity_offsets)
-        dataset.append(entities)
-    return dataset
+        example["tokens"] = tokens
+
+    elif "text" in example:
+        tokens = tokenizer.tokenize(example, attribute="text")
+        if isinstance(tokenizer, SpacyTokenizer):
+            tokenizer.add_cls_token(tokens)
+        example["tokens"] = tokens
+
+    else:
+        raise ValueError(f"empty example: {example}")
+
+    if dense_features:
+        text_dense_features = dense_features(
+            example, attribute="doc" if "doc" in example else "text"
+        )
+        if len(text_dense_features) > 0:
+            example["text_dense_features"] = text_dense_features
+
+    entity_offsets = get_entity_offsets(example)
+    crf_example = crf_extractor.from_json_to_crf(example, entity_offsets)
+    return crf_example
 
 
 class CRFEntityExtractor(object):
@@ -486,6 +497,12 @@ class CRFEntityExtractor(object):
     def __init__(self, nlp: Language, crf_extractor: Optional[CRFExtractor] = None):
         self.nlp = nlp
         self.crf_extractor = crf_extractor
+        self.spacy_tokenizer = SpacyTokenizer(nlp)
+
+        if self.crf_extractor.use_dense_features():
+            self.dense_features = DenseFeatures(nlp)
+        else:
+            self.dense_features = None
 
     def __call__(self, doc: Doc):
         """Apply the pipeline component on a Doc object and modify it if matches
@@ -507,18 +524,22 @@ class CRFEntityExtractor(object):
                 "Did you call `.from_disk()` method ?"
             )
 
-        tokenizer = SpacyTokenizer(self.nlp)
         message = {"doc": doc, "text": doc.text}
+        prepare_example(
+            message,
+            crf_extractor=self.crf_extractor,
+            tokenizer=self.spacy_tokenizer,
+            dense_features=self.dense_features,
+        )
 
-        tokens = tokenizer.tokenize(message, attribute="doc")
-        tokenizer.add_cls_token(tokens)
-        message["tokens"] = tokens
+        # tokens = self.spacy_tokenizer.tokenize(message, attribute="doc")
+        # self.spacy_tokenizer.add_cls_token(tokens)
+        # message["tokens"] = tokens
 
-        if self.crf_extractor.use_dense_features():
-            dense_features = DenseFeatures(self.nlp)
-            text_dense_features = dense_features(message, attribute="doc")
-            if len(text_dense_features) > 0:
-                message["text_dense_features"] = text_dense_features
+        # if self.dense_features:
+        #     text_dense_features = self.dense_features(message, attribute="doc")
+        #     if len(text_dense_features) > 0:
+        #         message["text_dense_features"] = text_dense_features
 
         spans = [
             doc.char_span(

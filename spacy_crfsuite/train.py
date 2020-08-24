@@ -1,10 +1,13 @@
 import pathlib
 import plac
+import spacy
 import srsly
+
 from wasabi import msg
 
-from spacy_crfsuite import to_crfsuite
-from spacy_crfsuite.crf_extractor import CRFExtractor
+from spacy_crfsuite.crf_extractor import CRFExtractor, prepare_example
+from spacy_crfsuite.dense_features import DenseFeatures
+from spacy_crfsuite.tokenizer import SpacyTokenizer
 from spacy_crfsuite.utils import read_examples
 
 
@@ -13,8 +16,9 @@ from spacy_crfsuite.utils import read_examples
     model_file=("Path to model file", "option", "m", str),
     out_dir=("Path to output directory", "option", "o", str),
     config_file=("Path to config file (.json format)", "option", "c", str),
+    spacy_model=("Name of spaCy model to use", "positional", None, str),
 )
-def main(in_file, out_dir=None, model_file=None, config_file=None):
+def main(in_file, out_dir=None, model_file=None, config_file=None, spacy_model=None):
     """Train CRF entity tagger."""
     if config_file:
         msg.info("Loading config from disk")
@@ -36,7 +40,30 @@ def main(in_file, out_dir=None, model_file=None, config_file=None):
         f"Successfully loaded {len(train_examples)} training examples from file.", in_file
     )
 
-    train_crf_examples = to_crfsuite(train_examples, crf_extractor=crf_extractor)
+    if spacy_model is not None:
+        nlp = spacy.load(spacy_model)
+        msg.info(f"Using spaCy model: {spacy_model}")
+    else:
+        nlp = spacy.blank("en")
+        msg.info(f"Using spaCy blank: 'en'")
+
+    tokenizer = SpacyTokenizer(nlp=nlp)
+
+    if crf_extractor.use_dense_features():
+        dense_features = DenseFeatures(nlp)
+    else:
+        dense_features = None
+
+    train_crf_examples = [
+        prepare_example(
+            ex,
+            crf_extractor=crf_extractor,
+            tokenizer=tokenizer,
+            dense_features=dense_features,
+        )
+        for ex in train_examples
+    ]
+
     msg.info("Training entity tagger with CRF.")
     crf_extractor.train(train_crf_examples)
 
