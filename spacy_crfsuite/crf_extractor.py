@@ -1,3 +1,4 @@
+from collections import Counter
 from pathlib import Path
 from typing import Dict, Text, Any, Optional, List, Tuple, NamedTuple, Union
 
@@ -98,18 +99,75 @@ class CRFExtractor:
         self.ent_tagger = ent_tagger
 
     def from_disk(self, path: Union[Path, str] = "model.pkl") -> "CRFExtractor":
-        self.ent_tagger = joblib.load(path)
+        """Load component from disk.
+
+        Args:
+            path (str, Path): path.
+
+        Returns:
+            CRFExtractor
+
+        Raises:
+            IOError
+        """
+        ent_tagger = joblib.load(path)
+        assert isinstance(ent_tagger, CRF)
+
+        self.ent_tagger = ent_tagger
         return self
 
     def to_disk(self, path: Union[Path, str] = "model.pkl") -> None:
-        """Save model to disk."""
-        if not self.ent_tagger:
-            return
+        """Save component to disk.
 
+        Args:
+            path (str, Path): path.
+
+        Raises:
+            RuntimeError - if entity tagger is not fitted for runtime.
+        """
+        self._check_runtime()
         joblib.dump(self.ent_tagger, path)
 
+    def use_dense_features(self) -> bool:
+        """A predicate to test if dense features should be used, according
+        to the feature list decalred in component config.
+
+        Returns:
+            bool
+        """
+        for feature_list in self.component_config["features"]:
+            if DENSE_FEATURES in feature_list:
+                return True
+        return False
+
+    def process(self, example: Dict) -> List[Dict[Text, Any]]:
+        """Process a single example with CRF entity tagging.
+
+        Args:
+            example (dict): example dict with either `doc`, `tokens` or `text` field.
+
+        Returns:
+            list.
+
+        Raises:
+            RuntimeError - in case crf tagger was not fitted.
+        """
+        self._check_runtime()
+
+        text_data = self._from_text_to_crf(example)
+        features = self._sentence_to_features(text_data)
+        entities = self.ent_tagger.predict_marginals_single(features)
+        return self._from_crf_to_json(example, entities)
+
     def train(self, training_samples: List[List[CRFToken]]) -> "CRFExtractor":
-        """Train the crf tagger based on the training data."""
+        """Train the entity tagger with examples.
+
+        Args:
+            training_samples (list): list of training examples.
+
+        Returns:
+            CRFExtractor
+        """
         if self.ent_tagger is None:
             self.ent_tagger = sklearn_crfsuite.CRF(
                 algorithm=self.component_config["algorithm"],
@@ -118,15 +176,22 @@ class CRFExtractor:
                 max_iterations=self.component_config["max_iter"],
                 all_possible_transitions=self.component_config["all_possible_transitions"],
             )
+
         X_train = [self._sentence_to_features(sent) for sent in training_samples]
         y_train = [self._sentence_to_labels(sent) for sent in training_samples]
         self.ent_tagger.fit(X_train, y_train)
         return self
 
     def eval(self, eval_samples: List[List[CRFToken]]) -> Optional[Tuple[Any, Text]]:
-        """Train the crf tagger based on the training data."""
-        if self.ent_tagger is None:
-            raise RuntimeError(".eval() was called before .train() ?")
+        """Evaluate the entity tagger on dev examples.
+
+        Args:
+            eval_samples (list): list of dev examples.
+
+        Returns:
+            (f1_score<float>, classification_report<str>)
+        """
+        self._check_runtime()
 
         X_test = [self._sentence_to_features(sent) for sent in eval_samples]
         y_test = [self._sentence_to_labels(sent) for sent in eval_samples]
@@ -142,21 +207,76 @@ class CRFExtractor:
         )
         return f1_score, classification_report
 
-    def process(self, message: Dict) -> List[Dict[Text, Any]]:
-        """Take a sentence and return entities in json format"""
-        if self.ent_tagger is not None:
-            text_data = self._from_text_to_crf(message)
-            features = self._sentence_to_features(text_data)
-            entities = self.ent_tagger.predict_marginals_single(features)
-            return self._from_crf_to_json(message, entities)
-        else:
-            return []
+    # def do_something(self):
+    #     def print_transitions(trans_features):
+    #         for (label_from, label_to), weight in trans_features:
+    #             print("%-6s -> %-7s %0.6f" % (label_from, label_to, weight))
+    #
+    #     print("Top likely transitions:")
+    #     print_transitions(Counter(crf.transition_features_).most_common(20))
+    #
+    #     print("\nTop unlikely transitions:")
+    #     print_transitions(Counter(crf.transition_features_).most_common()[-20:])
 
-    def use_dense_features(self) -> bool:
-        for feature_list in self.component_config["features"]:
-            if DENSE_FEATURES in feature_list:
-                return True
-        return False
+    def _check_runtime(self):
+        """Helper to check runtime before using component for predictions."""
+        if self.ent_tagger is None:
+            raise RuntimeError(
+                "CRF tagger was not fitted. Make sure to call ``.train()`` "
+                "to train a new model or ``.from_disk()`` to load "
+                "a pre-trained model from disk."
+            )
+
+    def explain(self, n_trans=10, n_states=10) -> str:
+        """Explain CRF learning by showing positive and negative examples of transitions and state features.
+
+        See `sklearn-crfsuite` documentation for more details.
+
+        ``https://sklearn-crfsuite.readthedocs.io/en/latest/tutorial.html#let-s-check-what-classifier-learned``
+
+        Args:
+            n_trans (int): num of transitions.
+            n_states (int): num of state features.
+
+        Returns:
+            str
+        """
+        self._check_runtime()
+        ret = ""
+
+        trans_features = Counter(self.ent_tagger.transition_features_).most_common(n_trans)
+        if trans_features:
+            ret += "Most likely transitions:\n"
+            ret += "\n".join(
+                f"{label_from:10} -> {label_to:10} {weight:.6f}"
+                for (label_from, label_to), weight in trans_features
+            )
+
+        trans_features = Counter(self.ent_tagger.transition_features_).most_common(
+            n_trans * -1
+        )
+        if trans_features:
+            ret += "\n\nMost unlikely transitions:\n"
+            ret += "\n".join(
+                f"{label_from:10} -> {label_to:10} {weight:.6f}"
+                for (label_from, label_to), weight in trans_features
+            )
+
+        pos_features = Counter(self.ent_tagger.state_features_).most_common(n_states)
+        if pos_features:
+            ret += "\n\nPositive features:\n"
+            ret += "\n".join(
+                f"{weight:.6f} {label:10} {attr}" for (attr, label), weight in pos_features
+            )
+
+        neg_features = Counter(self.ent_tagger.state_features_).most_common(n_states * -1)
+        if neg_features:
+            ret += "\n\nNegative features:\n"
+            ret += "\n".join(
+                f"{weight:.6f} {label:10} {attr}" for (attr, label), weight in pos_features
+            )
+
+        return ret
 
     def most_likely_entity(self, idx: int, entities: List[Any]) -> Tuple[Text, Any]:
         if len(entities) > idx:
