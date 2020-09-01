@@ -557,7 +557,7 @@ class CRFExtractor:
 def prepare_example(
     example: Dict,
     crf_extractor: CRFExtractor,
-    tokenizer: Tokenizer,
+    tokenizer: Optional[Tokenizer] = None,
     dense_features: Optional[DenseFeatures] = None,
 ) -> Optional[List[CRFToken]]:
     """Translate training example to CRF feature space.
@@ -571,6 +571,8 @@ def prepare_example(
     Returns:
         List[CRFToken], CRF example.
     """
+    tokenizer = tokenizer or SpacyTokenizer()
+
     if not example:
         return
 
