@@ -4,8 +4,8 @@
 
 - Simple but tough to beat **CRF entity tagger** (via [sklearn-crfsuite](https://github.com/TeamHG-Memex/sklearn-crfsuite))
 - **spaCy NER component**
-- **Command line interface** for training & evaluation command line and **example notebook**
-- **[CoNLL](https://www.aclweb.org/anthology/W03-0419/), JSON and [Markdown](https://rasa.com/docs/rasa/nlu/training-data-format/#id5) annotations** 
+- **Command line interface** for training & evaluation and **example notebook**
+- [CoNLL](https://www.aclweb.org/anthology/W03-0419/), JSON and [Markdown](https://rasa.com/docs/rasa/nlu/training-data-format/#id5) **annotations** 
 
 ## Installation
 
