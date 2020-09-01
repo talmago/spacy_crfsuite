@@ -5,7 +5,7 @@ import srsly
 
 
 def override_defaults(
-    defaults: Optional[Dict[Text, Any]], custom: Optional[Dict[Text, Any]]
+        defaults: Optional[Dict[Text, Any]], custom: Optional[Dict[Text, Any]]
 ) -> Dict[Text, Any]:
     if defaults:
         cfg = copy.deepcopy(defaults)
@@ -38,7 +38,7 @@ def read_examples(path: Union[Path, str]) -> List[Dict]:
     ext = path.suffix.lower()
 
     if ext == ".json":
-        # JSON format is the standard ...
+        # JSON format is the GOLD standard ...
         return list(srsly.read_json(path))
 
     elif ext == ".jsonl":
@@ -48,14 +48,15 @@ def read_examples(path: Union[Path, str]) -> List[Dict]:
     elif ext in (".md", ".markdown"):
         from spacy_crfsuite.markdown import MarkdownReader
 
-        # convert MD to JSON format
+        # With markdown, we can easily convert to JSON
         with path.open("r", encoding="utf-8") as f:
             md_reader = MarkdownReader()
             return md_reader(f.read())
 
-    elif ext.startswith(".conll"):
+    elif ext in (".txt", ".conll"):
         from spacy_crfsuite.conll import read_conll
 
+        # CoNLL-02, CoNLL-03
         return list(read_conll(path))
 
     else:

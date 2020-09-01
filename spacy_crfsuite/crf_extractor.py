@@ -571,10 +571,10 @@ def prepare_example(
     Returns:
         List[CRFToken], CRF example.
     """
-    tokenizer = tokenizer or SpacyTokenizer()
-
     if not example:
         return
+
+    tokenizer = tokenizer or SpacyTokenizer()
 
     if "tokens" in example:
         pass
