@@ -92,7 +92,9 @@ for ent in doc.ents:
     print(ent, "-", ent.label_)
 
 # Output:
-
+# George Walker Bush - PER
+# American - MISC
+# United States - LOC
 ```
 
 ### Command Line Interface
