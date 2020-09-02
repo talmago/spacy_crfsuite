@@ -155,7 +155,7 @@ class CRFExtractor:
         self._check_runtime()
 
         text_data = self._from_text_to_crf(example)
-        features = self._sentence_to_features(text_data)
+        features = self._crf_tokens_to_features(text_data)
         entities = self.ent_tagger.predict_marginals_single(features)
         return self._from_crf_to_json(example, entities)
 
@@ -177,8 +177,8 @@ class CRFExtractor:
                 all_possible_transitions=self.component_config["all_possible_transitions"],
             )
 
-        X_train = [self._sentence_to_features(sent) for sent in training_samples]
-        y_train = [self._sentence_to_labels(sent) for sent in training_samples]
+        X_train = [self._crf_tokens_to_features(sent) for sent in training_samples]
+        y_train = [self._crf_tokens_to_tags(sent) for sent in training_samples]
         self.ent_tagger.fit(X_train, y_train)
         return self
 
@@ -193,8 +193,8 @@ class CRFExtractor:
         """
         self._check_runtime()
 
-        X_test = [self._sentence_to_features(sent) for sent in eval_samples]
-        y_test = [self._sentence_to_labels(sent) for sent in eval_samples]
+        X_test = [self._crf_tokens_to_features(sent) for sent in eval_samples]
+        y_test = [self._crf_tokens_to_tags(sent) for sent in eval_samples]
 
         labels = list(self.ent_tagger.classes_)
         labels.remove("O")
@@ -402,66 +402,56 @@ class CRFExtractor:
                 word_idx += 1
         return json_ents
 
-    def _sentence_to_features(self, sentence: List[CRFToken]) -> List[Dict[Text, Any]]:
-        """Convert a word into discrete features in self.crf_features,
-        including word before and word after."""
-
-        configured_features = self.component_config["features"]
+    def _crf_tokens_to_features(self, sentence: List[CRFToken]) -> List[Dict[Text, Any]]:
+        """Convert the list of tokens into discrete features."""
         sentence_features = []
-
-        for word_idx in range(len(sentence)):
-            # word before(-1), current word(0), next word(+1)
-            feature_span = len(configured_features)
-            half_span = feature_span // 2
-            feature_range = range(-half_span, half_span + 1)
-            prefixes = [str(i) for i in feature_range]
-            word_features = {}
-            for f_i in feature_range:
-                if word_idx + f_i >= len(sentence):
-                    word_features["EOS"] = True
-                    # End Of Sentence
-                elif word_idx + f_i < 0:
-                    word_features["BOS"] = True
-                    # Beginning Of Sentence
-                else:
-                    word = sentence[word_idx + f_i]
-                    f_i_from_zero = f_i + half_span
-                    prefix = prefixes[f_i_from_zero]
-                    features = configured_features[f_i_from_zero]
-                    for feature in features:
-                        if feature == "pattern":
-                            # add all regexes as a feature
-                            regex_patterns = self.function_dict[feature](word)
-                            # pytype: disable=attribute-error
-                            for p_name, matched in regex_patterns.items():
-                                feature_name = prefix + ":" + feature + ":" + p_name
-                                word_features[feature_name] = matched
-                            # pytype: enable=attribute-error
-                        elif word and (feature == "pos" or feature == "pos2"):
-                            value = self.function_dict[feature](word)
-                            word_features[f"{prefix}:{feature}"] = value
-                        else:
-                            # append each feature to a feature vector
-                            value = self.function_dict[feature](word)
-                            word_features[prefix + ":" + feature] = value
-
-            sentence_features.append(word_features)
+        n_tokens = len(sentence)
+        for token_idx in range(n_tokens):
+            token_features = self._features_for_token(sentence, token_idx)
+            sentence_features.append(token_features)
         return sentence_features
 
-    @staticmethod
-    def _sentence_to_labels(
-        sentence: List[
-            Tuple[
-                Optional[Text],
-                Optional[Text],
-                Text,
-                Dict[Text, Any],
-                Optional[Dict[str, Any]],
-            ]
-        ],
-    ) -> List[Text]:
+    def _features_for_token(self, crf_tokens: List[CRFToken], token_idx: int):
+        """Convert a token into discrete features including word before and word after."""
+        token_features = {}
+        configured_features = self.component_config["features"]
+        window_size = len(configured_features)
+        half_window_size = window_size // 2
+        window_range = range(-half_window_size, half_window_size + 1)
+        prefixes = [str(i) for i in window_range]
 
-        return [label for _, _, label, _, _ in sentence]
+        for feature_idx in window_range:
+            if token_idx + feature_idx >= len(crf_tokens):
+                token_features["EOS"] = True
+            elif token_idx + feature_idx < 0:
+                token_features["BOS"] = True
+            else:
+                token = crf_tokens[token_idx + feature_idx]
+                current_feature_index = feature_idx + half_window_size
+                features = configured_features[current_feature_index]
+                prefix = prefixes[current_feature_index]
+                for feature in features:
+                    if feature == "pattern":
+                        # add all regexes extracted from the 'RegexFeaturizer' as a
+                        # feature: 'pattern_name' is the name of the pattern the user
+                        # set in the training data, 'matched' is either 'True' or
+                        # 'False' depending on whether the token actually matches the
+                        # pattern or not
+                        regex_patterns = self.function_dict[feature](token)
+                        for p_name, matched in regex_patterns.items():
+                            feature_name = prefix + ":" + feature + ":" + p_name
+                            token_features[feature_name] = matched
+                    elif token and (feature == "pos" or feature == "pos2"):
+                        value = self.function_dict[feature](token)
+                        token_features[f"{prefix}:{feature}"] = value
+                    else:
+                        value = self.function_dict[feature](token)
+                        token_features[prefix + ":" + feature] = value
+        return token_features
+
+    @staticmethod
+    def _crf_tokens_to_tags(sentence: List[CRFToken]) -> List[Text]:
+        return [crf_token.entity for crf_token in sentence]
 
     def from_json_to_crf(
         self, message: Dict, entity_offsets: List[Tuple[int, int, Text]]
