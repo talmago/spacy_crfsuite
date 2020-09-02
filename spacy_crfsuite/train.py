@@ -1,3 +1,4 @@
+import os
 import pathlib
 import plac
 import spacy
@@ -71,7 +72,7 @@ def main(in_file, out_dir=None, model_file=None, config_file=None, spacy_model=N
     msg.info("Saving model to disk")
     model_path.parent.mkdir(exist_ok=True)
     crf_extractor.to_disk(model_path)
-    msg.good("Successfully saved model to file.", str(model_path.resolve()))
+    msg.good("Successfully saved model to file.", str(model_path.relative_to(os.getcwd())))
 
 
 if __name__ == "__main__":

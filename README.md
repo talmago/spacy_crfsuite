@@ -75,18 +75,24 @@ EOF
 Run training
 
 ```sh
-$ python -m spacy_crfsuite.train examples/data/example.md -o model/ -c config.json
-ℹ Loading config: config.json
-ℹ Training CRF entity tagger with 15 examples.
+$ python -m spacy_crfsuite.train examples/restaurent_search.md -c examples/default-config.json -o model/
+ℹ Loading config from disk
+✔ Successfully loaded config from file.
+examples/default-config.json
+ℹ Loading training examples.
+✔ Successfully loaded 15 training examples from file.
+examples/restaurent_search.md
+ℹ Using spaCy blank: 'en'
+ℹ Training entity tagger with CRF.
 ℹ Saving model to disk
 ✔ Successfully saved model to file.
-/Users/talmago/git/spacy_crfsuite/model/model.pkl
+model/model.pkl
 ```
 
 Evaluate on a dataset
 
 ```sh
-$ python -m spacy_crfsuite.eval examples/data/example.md -m model/model.pkl
+$ python -m spacy_crfsuite.eval examples/restaurent_search.md -m model/model.pkl
 ℹ Loading model from file
 model/model.pkl
 ✔ Successfully loaded CRF tagger

@@ -41,7 +41,11 @@ class CRFExtractor:
         # POS features require SpacyTokenizer
         # pattern feature require RegexFeaturizer
         "features": [
-            ["low", "title", "upper"],
+            [
+                "low",
+                "title",
+                "upper"
+            ],
             [
                 "low",
                 "bias",
@@ -55,7 +59,11 @@ class CRFExtractor:
                 "digit",
                 "pattern",
             ],
-            ["low", "title", "upper"],
+            [
+                "low",
+                "title",
+                "upper"
+            ],
         ],
         # algorithm
         "algorithm": "lbfgs",
