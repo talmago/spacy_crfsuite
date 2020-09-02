@@ -5,13 +5,14 @@
 - Simple but tough to beat **CRF entity tagger** (via [sklearn-crfsuite](https://github.com/TeamHG-Memex/sklearn-crfsuite))
 - **spaCy NER component**
 - **Command line interface** for training & evaluation and **example notebook**
-- [CoNLL](https://www.aclweb.org/anthology/W03-0419/), JSON and [Markdown](https://rasa.com/docs/rasa/nlu/training-data-format/#id5) **annotations** 
+- [CoNLL](https://www.aclweb.org/anthology/W03-0419/), JSON and [Markdown](https://rasa.com/docs/rasa/nlu/training-data-format/#id5) **annotations**
+- Pre-trained NER component 
 
-## Installation
+## ⏳ Installation
 
-**Python**
-
-    pip install spacy_crfsuite
+```bash
+pip install spacy_crfsuite
+```
 
 ## 🚀 Quickstart
 
@@ -59,20 +60,44 @@ for ent in doc.ents:
 ```
 
 Follow this [notebook](https://github.com/talmago/spacy_crfsuite/blob/master/examples/01%20-%20Custom%20Component.ipynb) 
-to learn how to train a entity tagger from few [restaurant search examples](https://github.com/talmago/spacy_crfsuite/blob/master/examples/data/example.md).
+to learn how to train a entity tagger from few [restaurant search examples](https://github.com/talmago/spacy_crfsuite/blob/master/examples/restaurent_search.md).
 
+### Pre-trained model
 
-### Train & evaluate custom CRF tagger
+You can download a pre-trained model.
 
-Set up configuration file
+| Dataset              |   Size   | 📥 Download (zipped)                                                                                                                                                                                                                                                                                                      |
+| -------------------- | -----:   | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [CoNLL03](https://github.com/talmago/spacy_crfsuite/blob/master/examples/02%20-%20CoNLL%202003.ipynb)            |   1.2 MB | [part 1](https://github.com/talmago/spacy_crfsuite/releases/download/v1.1.0/spacy_crfsuite_conll03.bz2) |
 
-```sh
-$ cat << EOF > config.json
-{"c1": 0.03, "c2": 0.06}
-EOF
+Below is another usage example.
+
+```python
+import spacy
+
+from spacy_crfsuite import CRFEntityExtractor, CRFExtractor
+
+crf_extractor = CRFExtractor().from_disk("spacy_crfsuite_conll03.bz2")
+
+nlp = spacy.blank("en")
+
+pipe = CRFEntityExtractor(nlp, crf_extractor=crf_extractor)
+nlp.add_pipe(pipe)
+
+doc = nlp(
+    "George Walker Bush (born July 6, 1946) is an American politician and businessman "
+    "who served as the 43rd president of the United States from 2001 to 2009.")
+
+for ent in doc.ents:
+    print(ent, "-", ent.label_)
+
+# Output:
+
 ```
 
-Run training
+### Command Line Interface
+
+Model training
 
 ```sh
 $ python -m spacy_crfsuite.train examples/restaurent_search.md -c examples/default-config.json -o model/
@@ -89,7 +114,7 @@ examples/restaurent_search.md
 model/model.pkl
 ```
 
-Evaluate on a dataset
+Evaluation (F1 & Classification report)
 
 ```sh
 $ python -m spacy_crfsuite.eval examples/restaurent_search.md -m model/model.pkl
@@ -114,7 +139,9 @@ examples/example.md
 weighted avg      1.000     1.000     1.000        17
 ```
 
-Explain model
+### Tips & tricks
+
+Use the `.explain()` method to understand model decision.
 
 ```python
 print(crf_extractor.explain())

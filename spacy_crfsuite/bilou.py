@@ -2,7 +2,7 @@ from typing import List, Tuple, Text, Optional, Dict, Set, Any
 
 from spacy_crfsuite.tokenizer import Token
 
-BILOU_PREFIXES = ["B-", "I-", "U-", "L-"]
+BILOU_PREFIXES = {"B-", "I-", "U-", "L-"}
 
 
 def get_entity_offsets(message: Dict) -> List[Tuple[int, int, Text]]:

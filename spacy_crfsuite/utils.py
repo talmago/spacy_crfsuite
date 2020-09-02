@@ -5,7 +5,7 @@ import srsly
 
 
 def override_defaults(
-        defaults: Optional[Dict[Text, Any]], custom: Optional[Dict[Text, Any]]
+    defaults: Optional[Dict[Text, Any]], custom: Optional[Dict[Text, Any]]
 ) -> Dict[Text, Any]:
     if defaults:
         cfg = copy.deepcopy(defaults)
@@ -60,5 +60,7 @@ def read_file(path: Union[Path, str]) -> List[Dict]:
         return list(read_conll(path))
 
     else:
-        raise ValueError(f"Can't read examples from file with extension: ({ext}). "
-                         f"spacy_crfsuite accepts .json, .jsonl, .txt, .conll files.")
+        raise ValueError(
+            f"Can't read examples from file with extension: ({ext}). "
+            f"spacy_crfsuite accepts .json, .jsonl, .txt, .conll files."
+        )

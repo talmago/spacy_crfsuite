@@ -1,6 +1,6 @@
 from collections import Counter
 from pathlib import Path
-from typing import Dict, Text, Any, Optional, List, Tuple, NamedTuple, Union
+from typing import Dict, Text, Any, Optional, List, Tuple, NamedTuple, Union, Callable
 
 import joblib
 import numpy as np
@@ -34,6 +34,10 @@ class CRFToken(NamedTuple):
 
 class CRFExtractor:
     defaults = {
+        # BILOU_flag determines whether to use BILOU tagging or not.
+        # More rigorous however requires more examples per entity
+        # rule of thumb: use only if more than 100 egs. per entity
+        "BILOU_flag": True,
         # crf_features is [before, token, after] array with before, token,
         # after holding keys about which features to use for each token,
         # for example, 'title' in array before will have the feature
@@ -41,11 +45,7 @@ class CRFExtractor:
         # POS features require SpacyTokenizer
         # pattern feature require RegexFeaturizer
         "features": [
-            [
-                "low",
-                "title",
-                "upper"
-            ],
+            ["low", "title", "upper"],
             [
                 "low",
                 "bias",
@@ -59,11 +59,7 @@ class CRFExtractor:
                 "digit",
                 "pattern",
             ],
-            [
-                "low",
-                "title",
-                "upper"
-            ],
+            ["low", "title", "upper"],
         ],
         # algorithm
         "algorithm": "lbfgs",
@@ -77,7 +73,7 @@ class CRFExtractor:
         "all_possible_transitions": True,
     }
 
-    function_dict = {
+    function_dict: Dict[Text, Callable[[CRFToken], Any]] = {
         "low": lambda crf_token: crf_token.text.lower(),
         "title": lambda crf_token: crf_token.text.istitle(),
         "prefix5": lambda crf_token: crf_token.text[:5],
@@ -282,11 +278,17 @@ class CRFExtractor:
             entity_probs = None
         if entity_probs:
             label = max(entity_probs, key=lambda key: entity_probs[key])
-            # if we are using bilou flags, we will combine the prob
-            # of the B, I, L and U tags for an entity (so if we have a
-            # score of 60% for `B-address` and 40% and 30%
-            # for `I-address`, we will return 70%)
-            return (label, sum([v for k, v in entity_probs.items() if k[2:] == label[2:]]))
+            if self.component_config["BILOU_flag"]:
+                # if we are using bilou flags, we will combine the prob
+                # of the B, I, L and U tags for an entity (so if we have a
+                # score of 60% for `B-address` and 40% and 30%
+                # for `I-address`, we will return 70%)
+                return (
+                    label,
+                    sum([v for k, v in entity_probs.items() if k[2:] == label[2:]]),
+                )
+            else:
+                return label, entity_probs[label]
         else:
             return "", 0.0
 
@@ -338,7 +340,7 @@ class CRFExtractor:
 
             if label[2:] != entity_label:
                 # words are not tagged the same entity class
-                msg and msg.debug(
+                msg and msg.info(
                     "Inconsistent BILOU tagging found, B- tag, L- "
                     "tag pair encloses multiple entity classes.i.e. "
                     "[B-a, I-b, L-a] instead of [B-a, I-a, L-a].\n"
@@ -355,7 +357,7 @@ class CRFExtractor:
                 # entity not closed by an L- tag
                 finished = True
                 ent_word_idx -= 1
-                msg and msg.debug(
+                msg and msg.info(
                     "Inconsistent BILOU tagging found, B- tag not "
                     "closed by L- tag, i.e [B-a, I-a, O] instead of "
                     "[B-a, L-a, O].\nAssuming last tag is L-"
@@ -388,12 +390,15 @@ class CRFExtractor:
                 "Inconsistency in amount of tokens between crfsuite and message"
             )
 
-        return self._convert_bilou_tagging_to_entity_result(message, tokens, entities)
+        if self.component_config["BILOU_flag"]:
+            return self._convert_bilou_tagging_to_entity_result(message, tokens, entities)
+        else:
+            # not using BILOU tagging scheme, multi-word entities are split.
+            return self._convert_simple_tagging_to_entity_result(tokens, entities)
 
     def _convert_bilou_tagging_to_entity_result(
         self, message: Dict, tokens: List[Token], entities: List[Dict[Text, float]]
-    ):
-        # using the BILOU tagging scheme
+    ) -> List[Dict[Text, Any]]:
         json_ents = []
         word_idx = 0
         while word_idx < len(tokens):
@@ -408,6 +413,24 @@ class CRFExtractor:
                 word_idx = end_idx + 1
             else:
                 word_idx += 1
+        return json_ents
+
+    def _convert_simple_tagging_to_entity_result(
+        self, tokens: List[Union[Token, Any]], entities: List[Any]
+    ) -> List[Dict[Text, Any]]:
+        json_ents = []
+        for word_idx in range(len(tokens)):
+            entity_label, confidence = self.most_likely_entity(word_idx, entities)
+            word = tokens[word_idx]
+            if entity_label != "O":
+                ent = {
+                    "start": word.start,
+                    "end": word.end,
+                    "value": word.text,
+                    "entity": entity_label,
+                    "confidence": confidence,
+                }
+                json_ents.append(ent)
         return json_ents
 
     def _crf_tokens_to_features(self, sentence: List[CRFToken]) -> List[Dict[Text, Any]]:
@@ -485,6 +508,11 @@ class CRFExtractor:
                     f"whitespaces or punctuation)."
                 )
                 collected = []
+
+        if not self.component_config["BILOU_flag"]:
+            for i, label in enumerate(ents):
+                if bilou_prefix_from_tag(label):  # removes BILOU prefix from label
+                    ents[i] = entity_name_from_tag(label)
 
         return self._from_text_to_crf(message, ents)
 
@@ -640,15 +668,6 @@ class CRFEntityExtractor(object):
             tokenizer=self.spacy_tokenizer,
             dense_features=self.dense_features,
         )
-
-        # tokens = self.spacy_tokenizer.tokenize(message, attribute="doc")
-        # self.spacy_tokenizer.add_cls_token(tokens)
-        # message["tokens"] = tokens
-
-        # if self.dense_features:
-        #     text_dense_features = self.dense_features(message, attribute="doc")
-        #     if len(text_dense_features) > 0:
-        #         message["text_dense_features"] = text_dense_features
 
         spans = [
             doc.char_span(

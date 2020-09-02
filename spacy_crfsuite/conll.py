@@ -1,6 +1,5 @@
 from pathlib import Path
 from typing import List, TextIO, Iterator, Dict, Union
-from spacy_crfsuite.bilou import bilou_prefix_from_tag, entity_name_from_tag
 from spacy_crfsuite.tokenizer import Token
 
 
@@ -66,11 +65,11 @@ def _parse_block(buff: List[List[str]]) -> Dict:
         token = Token(word, idx, data={"pos": pos})
         tokens.append(token)
         idx += len(word) + 1
-        if bilou_prefix_from_tag(tag):
+        if tag != "O":
             entities.append(
                 {
                     "value": token.text,
-                    "entity": entity_name_from_tag(tag),
+                    "entity": tag,
                     "start": token.start,
                     "end": token.end,
                 }
