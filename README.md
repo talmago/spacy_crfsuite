@@ -49,7 +49,7 @@ You can download a pre-trained model.
 
 | Dataset              |   Size   | 📥 Download (zipped)                                                                                                                                                                                                                                                                                                      |
 | -------------------- | -----:   | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [CoNLL03](https://github.com/talmago/spacy_crfsuite/blob/master/examples/02%20-%20CoNLL%202003.ipynb)            |   1.2 MB | [part 1](https://github.com/talmago/spacy_crfsuite/releases/download/v1.1.0/spacy_crfsuite_conll03.bz2) |
+| [CoNLL03](https://github.com/talmago/spacy_crfsuite/blob/master/examples/02%20-%20CoNLL%202003.ipynb)            |   1.2 MB | [spacy_crfsuite_conll03.bz2](https://github.com/talmago/spacy_crfsuite/releases/download/v1.1.0/spacy_crfsuite_conll03.bz2) |
 
 
 ### Train your own model
