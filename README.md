@@ -16,61 +16,7 @@ pip install spacy_crfsuite
 
 ## 🚀 Quickstart
 
-### Standalone usage
-
-```python
-from spacy_crfsuite import CRFExtractor, prepare_example
-
-crf_extractor = CRFExtractor().from_disk("model.pkl")
-raw_example = {"text": "show mexican restaurents up north"}
-example = prepare_example(raw_example, crf_extractor=crf_extractor)
-crf_extractor.process(example)
-
-# Output:
-# [{'start': 5,
-#   'end': 12,
-#   'value': 'mexican',
-#   'entity': 'cuisine',
-#   'confidence': 0.5823148506311286},
-#  {'start': 28,
-#   'end': 33,
-#   'value': 'north',
-#   'entity': 'location',
-#   'confidence': 0.8863076478494413}]
-```
-
 ### Usage as a spaCy pipeline component
-
-```python
-import spacy
-
-from spacy_crfsuite import CRFEntityExtractor
-
-nlp = spacy.blank('en')
-pipe = CRFEntityExtractor(nlp).from_disk("model.pkl")
-nlp.add_pipe(pipe)
-
-doc = nlp("show mexican restaurents up north")
-for ent in doc.ents:
-    print(ent.text, "--", ent.label_)
-
-# Output:
-# mexican -- cuisine
-# north -- location
-```
-
-Follow this [notebook](https://github.com/talmago/spacy_crfsuite/blob/master/examples/01%20-%20Custom%20Component.ipynb) 
-to learn how to train a entity tagger from few [restaurant search examples](https://github.com/talmago/spacy_crfsuite/blob/master/examples/restaurent_search.md).
-
-### Pre-trained model
-
-You can download a pre-trained model.
-
-| Dataset              |   Size   | 📥 Download (zipped)                                                                                                                                                                                                                                                                                                      |
-| -------------------- | -----:   | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [CoNLL03](https://github.com/talmago/spacy_crfsuite/blob/master/examples/02%20-%20CoNLL%202003.ipynb)            |   1.2 MB | [part 1](https://github.com/talmago/spacy_crfsuite/releases/download/v1.1.0/spacy_crfsuite_conll03.bz2) |
-
-Below is another usage example.
 
 ```python
 import spacy
@@ -97,9 +43,22 @@ for ent in doc.ents:
 # United States - LOC
 ```
 
-### Command Line Interface
+### Pre-trained models
 
-Model training
+You can download a pre-trained model.
+
+| Dataset              |   Size   | 📥 Download (zipped)                                                                                                                                                                                                                                                                                                      |
+| -------------------- | -----:   | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [CoNLL03](https://github.com/talmago/spacy_crfsuite/blob/master/examples/02%20-%20CoNLL%202003.ipynb)            |   1.2 MB | [part 1](https://github.com/talmago/spacy_crfsuite/releases/download/v1.1.0/spacy_crfsuite_conll03.bz2) |
+
+
+### Train your own model
+
+Let's train a simple model for restaurent search bot with [markdown 
+annotations](https://github.com/talmago/spacy_crfsuite/blob/master/examples/restaurent_search.md) and the command line. 
+You can also try this [notebook](https://github.com/talmago/spacy_crfsuite/blob/master/examples/01%20-%20Custom%20Component.ipynb).
+
+So we start by training a model and saving it to disk.
 
 ```sh
 $ python -m spacy_crfsuite.train examples/restaurent_search.md -c examples/default-config.json -o model/
@@ -116,7 +75,7 @@ examples/restaurent_search.md
 model/model.pkl
 ```
 
-Evaluation (F1 & Classification report)
+We can also evaluate on a dev set to get f1 & classification report. Below we use the training examples.
 
 ```sh
 $ python -m spacy_crfsuite.eval examples/restaurent_search.md -m model/model.pkl
@@ -141,7 +100,50 @@ examples/example.md
 weighted avg      1.000     1.000     1.000        17
 ```
 
-### Tips & tricks
+Now we can use the tagger in a spaCy pipeline!
+
+```python
+import spacy
+
+from spacy_crfsuite import CRFEntityExtractor
+
+nlp = spacy.blank('en')
+pipe = CRFEntityExtractor(nlp).from_disk("model/model.pkl")
+nlp.add_pipe(pipe)
+
+doc = nlp("show mexican restaurents up north")
+for ent in doc.ents:
+    print(ent.text, "--", ent.label_)
+
+# Output:
+# mexican -- cuisine
+# north -- location
+```
+
+Or alternatively as a standalone component.
+
+```python
+from spacy_crfsuite import CRFExtractor, prepare_example
+
+crf_extractor = CRFExtractor().from_disk("model.pkl")
+raw_example = {"text": "show mexican restaurents up north"}
+example = prepare_example(raw_example, crf_extractor=crf_extractor)
+crf_extractor.process(example)
+
+# Output:
+# [{'start': 5,
+#   'end': 12,
+#   'value': 'mexican',
+#   'entity': 'cuisine',
+#   'confidence': 0.5823148506311286},
+#  {'start': 28,
+#   'end': 33,
+#   'value': 'north',
+#   'entity': 'location',
+#   'confidence': 0.8863076478494413}]
+```
+
+We can also take a look at what model learned.
 
 Use the `.explain()` method to understand model decision.
 
