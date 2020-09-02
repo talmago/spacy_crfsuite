@@ -8,7 +8,7 @@ from wasabi import msg
 from spacy_crfsuite.crf_extractor import CRFExtractor, prepare_example
 from spacy_crfsuite.dense_features import DenseFeatures
 from spacy_crfsuite.tokenizer import SpacyTokenizer
-from spacy_crfsuite.utils import read_examples
+from spacy_crfsuite.utils import read_file
 
 
 @plac.annotations(
@@ -35,7 +35,7 @@ def main(in_file, out_dir=None, model_file=None, config_file=None, spacy_model=N
         msg.good("Successfully loaded model from file.", model_file)
 
     msg.info("Loading training examples.")
-    train_examples = read_examples(in_file)
+    train_examples = read_file(in_file)
     msg.good(
         f"Successfully loaded {len(train_examples)} training examples from file.", in_file
     )

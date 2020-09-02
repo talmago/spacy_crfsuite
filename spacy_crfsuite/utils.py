@@ -22,7 +22,7 @@ def override_defaults(
     return cfg
 
 
-def read_examples(path: Union[Path, str]) -> List[Dict]:
+def read_file(path: Union[Path, str]) -> List[Dict]:
     """Read train/dev examples from file, either JSON, MD or ConLL format.
 
     Args:
@@ -60,4 +60,5 @@ def read_examples(path: Union[Path, str]) -> List[Dict]:
         return list(read_conll(path))
 
     else:
-        raise ValueError(f"expected a JSON / Markdown, got {ext}.")
+        raise ValueError(f"Can't read examples from file with extension: ({ext}). "
+                         f"spacy_crfsuite accepts .json, .jsonl, .txt, .conll files.")

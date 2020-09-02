@@ -207,17 +207,6 @@ class CRFExtractor:
         )
         return f1_score, classification_report
 
-    # def do_something(self):
-    #     def print_transitions(trans_features):
-    #         for (label_from, label_to), weight in trans_features:
-    #             print("%-6s -> %-7s %0.6f" % (label_from, label_to, weight))
-    #
-    #     print("Top likely transitions:")
-    #     print_transitions(Counter(crf.transition_features_).most_common(20))
-    #
-    #     print("\nTop unlikely transitions:")
-    #     print_transitions(Counter(crf.transition_features_).most_common()[-20:])
-
     def _check_runtime(self):
         """Helper to check runtime before using component for predictions."""
         if self.ent_tagger is None:

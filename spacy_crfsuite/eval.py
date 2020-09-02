@@ -11,7 +11,7 @@ from wasabi import msg
 from spacy_crfsuite.crf_extractor import CRFExtractor, prepare_example
 from spacy_crfsuite.dense_features import DenseFeatures
 from spacy_crfsuite.tokenizer import SpacyTokenizer
-from spacy_crfsuite.utils import read_examples
+from spacy_crfsuite.utils import read_file
 
 
 @plac.annotations(
@@ -34,7 +34,7 @@ def main(in_file, model_file=None, config_file=None, spacy_model=None):
     msg.good("Successfully loaded CRF tagger", crf_extractor)
 
     msg.info("Loading dev dataset from file", in_file)
-    dev_examples = read_examples(in_file)
+    dev_examples = read_file(in_file)
     msg.good(f"Successfully loaded {len(dev_examples)} dev examples.")
 
     if spacy_model is not None:
