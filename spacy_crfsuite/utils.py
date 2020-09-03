@@ -1,7 +1,8 @@
 import copy
+import srsly
+
 from pathlib import Path
 from typing import Optional, Dict, Text, Any, List, Union
-import srsly
 
 
 def override_defaults(
@@ -22,7 +23,7 @@ def override_defaults(
     return cfg
 
 
-def read_file(path: Union[Path, str]) -> List[Dict]:
+def read_file(path: Union[Path, str], **kwargs) -> List[Dict]:
     """Read train/dev examples from file, either JSON, MD or ConLL format.
 
     Args:
@@ -51,13 +52,13 @@ def read_file(path: Union[Path, str]) -> List[Dict]:
         # With markdown, we can easily convert to JSON
         with path.open("r", encoding="utf-8") as f:
             md_reader = MarkdownReader()
-            return md_reader(f.read())
+            return md_reader(f.read(), **kwargs)
 
     elif ext in (".txt", ".conll"):
         from spacy_crfsuite.conll import read_conll
 
         # CoNLL-02, CoNLL-03
-        return list(read_conll(path))
+        return list(read_conll(path, **kwargs))
 
     else:
         raise ValueError(

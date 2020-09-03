@@ -1,13 +1,16 @@
 from pathlib import Path
 from typing import List, TextIO, Iterator, Dict, Union
+
+from spacy_crfsuite.bilou import entity_name_from_tag
 from spacy_crfsuite.tokenizer import Token
 
 
-def read_conll(path: Union[str, Path]) -> Iterator[Dict]:
+def read_conll(path: Union[str, Path], iob=True) -> Iterator[Dict]:
     """Read a CONLL file.
 
     Args:
         path: file path.
+        iob: Setting to False will remove IOB prefixes.
 
     Returns:
         Iterator.
@@ -18,10 +21,10 @@ def read_conll(path: Union[str, Path]) -> Iterator[Dict]:
     assert isinstance(path, Path)
 
     with path.open("r", encoding="utf-8") as f:
-        yield from _parse_conll(f)
+        yield from _parse_conll(f, iob=iob)
 
 
-def _parse_conll(in_file: TextIO) -> Iterator[Dict]:
+def _parse_conll(in_file: TextIO, iob=True) -> Iterator[Dict]:
     """Parse a text blob of CONLL format.
 
     https://github.com/EmilStenstrom/conllu/blob/bd22e8680ec12b9f676e755c82f32517f5a399e1/conllu/parser.py#L53"""
@@ -30,7 +33,7 @@ def _parse_conll(in_file: TextIO) -> Iterator[Dict]:
         if line == "\n":
             if not buf:
                 continue
-            yield _parse_block(buf)
+            yield _parse_block(buf, iob=iob)
             buf = []
         elif line.startswith("-DOCSTART-"):
             continue
@@ -39,14 +42,15 @@ def _parse_conll(in_file: TextIO) -> Iterator[Dict]:
         else:
             buf.append(line.rstrip().split())
     if buf:
-        yield _parse_block(buf)
+        yield _parse_block(buf, iob=iob)
 
 
-def _parse_block(buff: List[List[str]]) -> Dict:
+def _parse_block(buff: List[List[str]], iob=True) -> Dict:
     """Parse a buffer in CONLL file.
 
     Args:
         buff: splitted lines.
+        iob: Keep IOB schema.
 
     Returns:
         dict
@@ -66,6 +70,8 @@ def _parse_block(buff: List[List[str]]) -> Dict:
         tokens.append(token)
         idx += len(word) + 1
         if tag != "O":
+            if not iob:
+                tag = entity_name_from_tag(tag)
             entities.append(
                 {
                     "value": token.text,

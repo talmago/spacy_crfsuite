@@ -1,4 +1,5 @@
 import itertools
+
 from collections import Counter
 from pathlib import Path
 from typing import Dict, Text, Any, Optional, List, Tuple, NamedTuple, Union, Callable
@@ -16,6 +17,7 @@ from spacy_crfsuite.bilou import (
     bilou_prefix_from_tag,
     get_entity_offsets,
 )
+
 from spacy_crfsuite.compat import msg
 from spacy_crfsuite.constants import TOKENS, PATTERN, DENSE_FEATURES
 from spacy_crfsuite.dense_features import DenseFeatures
@@ -29,6 +31,108 @@ class CRFToken(NamedTuple):
     entity: Text
     pattern: Dict[Text, Any]
     dense_features: np.ndarray
+
+
+class Featurizer:
+    """Translate text into a list of CRF tokens using the BILOU schema.
+
+     It must be called after the pre-processing step,
+     either by spaCy or external source (ConLL file)."""
+
+    def __call__(
+        self, message: Dict, entities: Optional[List[Text]] = None
+    ) -> List[CRFToken]:
+        """Convert JSON example to crfsuite format.
+
+        Args:
+            message (dict): message dict.
+            entities (list): optional, GOLD labels for entities.
+
+        Returns:
+            a list of CRF tokens.
+        """
+        crf_tokens = []
+        tokens = self.tokens_without_cls(message)
+        text_dense_features = self.__get_dense_features(message)
+        for i, token in enumerate(tokens):
+            pattern = self.__pattern_of_token(message, i)
+            entity = entities[i] if entities else "N/A"
+            pos = token.get("pos")
+            dense_features = (
+                text_dense_features[i] if text_dense_features is not None else []
+            )
+            crf_token = CRFToken(token.text, pos, entity, pattern, dense_features)
+            crf_tokens.append(crf_token)
+        return crf_tokens
+
+    def apply_bilou_schema(self, message: Dict) -> List[Text]:
+        """Apply BILOU schema to a JSON example.
+
+        Args:
+            message (dict): message dict.
+
+        Returns:
+            a list of BILOU tags.
+        """
+        tokens = self.tokens_without_cls(message)
+        entity_offsets = get_entity_offsets(message)
+        entities = bilou_tags_from_offsets(tokens, entity_offsets)
+
+        collected = []
+        for t, e in zip(tokens, entities):
+            if e == "-":
+                collected.append(t)
+            elif collected:
+                collected_text = " ".join([t.text for t in collected])
+                msg and msg.warn(
+                    f"Misaligned entity annotation for '{collected_text}' "
+                    f"in sentence: \"{message['text']}\". "
+                    f"Make sure the start and end values of the "
+                    f"annotated training examples end at token "
+                    f"boundaries (e.g. don't include trailing "
+                    f"whitespaces or punctuation)."
+                )
+                collected = []
+
+        return entities
+
+    @staticmethod
+    def tokens_without_cls(message: Dict) -> List[Token]:
+        return message.get(TOKENS)[:-1]
+
+    @staticmethod
+    def __pattern_of_token(message: Dict, i: int) -> Dict:
+        if message.get(TOKENS) is not None:
+            return message.get(TOKENS)[i].get(PATTERN, {})
+        else:
+            return {}
+
+    @staticmethod
+    def __get_dense_features(message: Dict) -> Optional[List[Any]]:
+        features = message.get(DENSE_FEATURES)
+        if features is None:
+            return None
+
+        tokens = message.get(TOKENS, [])
+        if len(tokens) != len(features):
+            msg and msg.warning(
+                f"Number of features ({len(features)}) for attribute "
+                f"'{DENSE_FEATURES}' "
+                f"does not match number of tokens ({len(tokens)}). Set "
+                f"'return_sequence' to true in the corresponding featurizer in order "
+                f"to make use of the features in 'CRFEntityExtractor'."
+            )
+            return None
+
+        # convert to python-crfsuite feature format
+        features_out = []
+        for feature in features:
+            feature_dict = {
+                str(index): token_features for index, token_features in enumerate(feature)
+            }
+            converted = {DENSE_FEATURES: feature_dict}
+            features_out.append(converted)
+        return features_out
 
 
 class CRFExtractor:
@@ -100,6 +204,7 @@ class CRFExtractor:
 
         self.component_config = override_defaults(self.defaults, component_config)
         self.ent_tagger = ent_tagger
+        self.featurizer = Featurizer()
 
     def from_disk(self, path: Union[Path, str] = "model.pkl") -> "CRFExtractor":
         """Load component from disk.
@@ -157,8 +262,8 @@ class CRFExtractor:
         """
         self._check_runtime()
 
-        text_data = self._from_text_to_crf(example)
-        features = self._crf_tokens_to_features(text_data)
+        crf_tokens: List[CRFToken] = self.featurizer(example)
+        features: List[Dict[Text, Any]] = self._crf_tokens_to_features(crf_tokens)
         entities = self.ent_tagger.predict_marginals_single(features)
         return self._from_crf_to_json(example, entities)
 
@@ -526,102 +631,26 @@ class CRFExtractor:
     def _crf_tokens_to_tags(sentence: List[CRFToken]) -> List[Text]:
         return [crf_token.entity for crf_token in sentence]
 
-    def from_json_to_crf(
-        self, message: Dict, entity_offsets: List[Tuple[int, int, Text]]
-    ) -> List[CRFToken]:
-        """Convert json examples to format of underlying crfsuite."""
 
-        tokens = self._tokens_without_cls(message)
-        ents = bilou_tags_from_offsets(tokens, entity_offsets)
-
-        # collect badly annotated examples
-        collected = []
-        for t, e in zip(tokens, ents):
-            if e == "-":
-                collected.append(t)
-            elif collected:
-                collected_text = " ".join([t.text for t in collected])
-                msg and msg.warn(
-                    f"Misaligned entity annotation for '{collected_text}' "
-                    f"in sentence: \"{message['text']}\". "
-                    f"Make sure the start and end values of the "
-                    f"annotated training examples end at token "
-                    f"boundaries (e.g. don't include trailing "
-                    f"whitespaces or punctuation)."
-                )
-                collected = []
-
-        if not self.component_config["BILOU_flag"]:
-            for i, label in enumerate(ents):
-                if bilou_prefix_from_tag(label):  # removes BILOU prefix from label
-                    ents[i] = entity_name_from_tag(label)
-
-        return self._from_text_to_crf(message, ents)
-
-    @staticmethod
-    def __pattern_of_token(message: Dict, i: int) -> Dict:
-        if message.get(TOKENS) is not None:
-            return message.get(TOKENS)[i].get(PATTERN, {})
-        else:
-            return {}
-
-    @staticmethod
-    def __get_dense_features(message: Dict) -> Optional[List[Any]]:
-        features = message.get(DENSE_FEATURES)
-        if features is None:
-            return None
-
-        tokens = message.get(TOKENS, [])
-        if len(tokens) != len(features):
-            msg and msg.warning(
-                f"Number of features ({len(features)}) for attribute "
-                f"'{DENSE_FEATURES}' "
-                f"does not match number of tokens ({len(tokens)}). Set "
-                f"'return_sequence' to true in the corresponding featurizer in order "
-                f"to make use of the features in 'CRFEntityExtractor'."
-            )
-            return None
-
-        # convert to python-crfsuite feature format
-        features_out = []
-        for feature in features:
-            feature_dict = {
-                str(index): token_features for index, token_features in enumerate(feature)
-            }
-            converted = {DENSE_FEATURES: feature_dict}
-            features_out.append(converted)
-        return features_out
-
-    def _from_text_to_crf(
-        self, message: Dict, entities: List[Text] = None
-    ) -> List[CRFToken]:
-        """Takes a sentence and switches it to crfsuite format."""
-        crf_format = []
-        tokens = self._tokens_without_cls(message)
-        text_dense_features = self.__get_dense_features(message)
-        for i, token in enumerate(tokens):
-            pattern = self.__pattern_of_token(message, i)
-            entity = entities[i] if entities else "N/A"
-            tag = token.get("pos")
-            dense_features = (
-                text_dense_features[i] if text_dense_features is not None else []
-            )
-            crf_token = CRFToken(token.text, tag, entity, pattern, dense_features)
-            crf_format.append(crf_token)
-        return crf_format
+def _tokenize(message: Dict, tokenizer: Tokenizer, attribute: Text = "text") -> None:
+    """tokenize message."""
+    tokens = tokenizer.tokenize(message, attribute=attribute)
+    if isinstance(tokenizer, SpacyTokenizer):
+        tokenizer.add_cls_token(tokens)
+    message["tokens"] = tokens
 
 
 def prepare_example(
     example: Dict,
-    crf_extractor: CRFExtractor,
+    featurizer: Optional[Featurizer] = None,
     tokenizer: Optional[Tokenizer] = None,
     dense_features: Optional[DenseFeatures] = None,
-) -> Optional[List[CRFToken]]:
+) -> List[CRFToken]:
     """Translate training example to CRF feature space.
 
     Args:
         example (dict): example dict. must have either "doc", "tokens" or "text" field.
-        crf_extractor (CRFExtractor): CRF component.
+        featurizer (Featurizer): featurizer.
         tokenizer (Tokenizer): tokenizer.
         dense_features (DenseFeatures): dense features.
 
@@ -629,25 +658,17 @@ def prepare_example(
         List[CRFToken], CRF example.
     """
     if not example:
-        return
+        return []
 
     tokenizer = tokenizer or SpacyTokenizer()
+    featurizer = featurizer or Featurizer()
 
     if "tokens" in example:
         pass
-
     elif "doc" in example:
-        tokens = tokenizer.tokenize(example, attribute="doc")
-        if isinstance(tokenizer, SpacyTokenizer):
-            tokenizer.add_cls_token(tokens)
-        example["tokens"] = tokens
-
+        _tokenize(example, tokenizer, "doc")
     elif "text" in example:
-        tokens = tokenizer.tokenize(example, attribute="text")
-        if isinstance(tokenizer, SpacyTokenizer):
-            tokenizer.add_cls_token(tokens)
-        example["tokens"] = tokens
-
+        _tokenize(example, tokenizer, "text")
     else:
         raise ValueError(f"empty example: {example}")
 
@@ -658,9 +679,8 @@ def prepare_example(
         if len(text_dense_features) > 0:
             example["text_dense_features"] = text_dense_features
 
-    entity_offsets = get_entity_offsets(example)
-    crf_example = crf_extractor.from_json_to_crf(example, entity_offsets)
-    return crf_example
+    entities = featurizer.apply_bilou_schema(example)
+    return featurizer(example, entities)
 
 
 class CRFEntityExtractor(object):
@@ -705,10 +725,7 @@ class CRFEntityExtractor(object):
 
         message = {"doc": doc, "text": doc.text}
         prepare_example(
-            message,
-            crf_extractor=self.crf_extractor,
-            tokenizer=self.spacy_tokenizer,
-            dense_features=self.dense_features,
+            message, tokenizer=self.spacy_tokenizer, dense_features=self.dense_features
         )
 
         spans = [

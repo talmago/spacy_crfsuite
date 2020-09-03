@@ -127,7 +127,7 @@ from spacy_crfsuite import CRFExtractor, prepare_example
 
 crf_extractor = CRFExtractor().from_disk("model.pkl")
 raw_example = {"text": "show mexican restaurents up north"}
-example = prepare_example(raw_example, crf_extractor=crf_extractor)
+example = prepare_example(raw_example)
 crf_extractor.process(example)
 
 # Output:
