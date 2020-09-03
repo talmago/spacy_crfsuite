@@ -3,9 +3,7 @@
         [
             "low",
             "title",
-            "upper",
-            "pos",
-            "pos2"
+            "upper"
         ],
         [
             "low",
@@ -17,18 +15,14 @@
             "suffix2",
             "upper",
             "title",
-            "digit",
-            "pos",
-            "pos2"
+            "digit"
         ],
         [
             "low",
             "title",
-            "upper",
-            "pos",
-            "pos2"
+            "upper"
         ]
     ],
-    "c1": 0.03,
-    "c2": 0.06
+    "c1": 0.003,
+    "c2": 0.03
 }

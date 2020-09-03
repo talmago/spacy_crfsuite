@@ -315,7 +315,14 @@ class CRFExtractor:
         )
         return f1_score, classification_report
 
-    def fine_tune(self, val_samples: List[List[CRFToken]], cv=3, n_iter=10, n_jobs=-1):
+    def fine_tune(
+        self,
+        val_samples: List[List[CRFToken]],
+        cv=3,
+        n_iter=10,
+        n_jobs=-1,
+        random_state=None,
+    ):
         """Fine-tune hyper params (i.e L1/L2 regularization term).
 
         Args:
@@ -323,6 +330,7 @@ class CRFExtractor:
             cv (int): optional, cross-validation K-fold.
             n_iter (int): optional, num of iterations.
             n_jobs (int): optional, num of threads (-1 = ``multiprocessing.cpu_count()``).
+            random_state (int): optional, random seed.
 
         Returns:
             a fitted instance of ``RandomizedSearchCV``.
@@ -354,6 +362,7 @@ class CRFExtractor:
             n_jobs=n_jobs,
             n_iter=n_iter,
             scoring=f1_scorer,
+            random_state=random_state,
         )
         rs.fit(X_train, y_train)
         return rs

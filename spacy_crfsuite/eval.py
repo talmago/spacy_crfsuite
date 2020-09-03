@@ -18,7 +18,7 @@ from spacy_crfsuite.utils import read_file
     in_file=("Path to input file (either .json, .md or .conll)", "positional", None, str),
     model_file=("Path to model file", "option", "m", str),
     config_file=("Path to config file (.json format)", "option", "c", str),
-    spacy_model=("Name of spaCy model to use", "positional", None, str),
+    spacy_model=("Name of spaCy model to use", "option", "lm", str),
 )
 def main(in_file, model_file=None, config_file=None, spacy_model=None):
     """Train CRF entity tagger."""
@@ -52,12 +52,7 @@ def main(in_file, model_file=None, config_file=None, spacy_model=None):
         dense_features = None
 
     dev_crf_examples = [
-        prepare_example(
-            ex,
-            crf_extractor=crf_extractor,
-            tokenizer=tokenizer,
-            dense_features=dense_features,
-        )
+        prepare_example(ex, tokenizer=tokenizer, dense_features=dense_features)
         for ex in dev_examples
     ]
 
