@@ -69,7 +69,7 @@ class SpacyTokenizer(Tokenizer):
             doc = self.nlp(doc)
 
         return [
-            Token(t.text, t.idx, lemma=t.lemma_, data={"pos": self._tag_of_token(t)})
+            Token(t.text, t.idx, lemma=t.lemma_, data={"pos": self._tag_of_token(t), "shape": t.shape_})
             for t in doc
         ]
 
