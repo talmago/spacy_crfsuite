@@ -1,10 +1,10 @@
+import itertools
 from collections import Counter
 from pathlib import Path
 from typing import Dict, Text, Any, Optional, List, Tuple, NamedTuple, Union, Callable
 
 import joblib
 import numpy as np
-import sklearn_crfsuite
 
 from sklearn_crfsuite import CRF, metrics
 from spacy.language import Language
@@ -16,7 +16,6 @@ from spacy_crfsuite.bilou import (
     bilou_prefix_from_tag,
     get_entity_offsets,
 )
-
 from spacy_crfsuite.compat import msg
 from spacy_crfsuite.constants import TOKENS, PATTERN, DENSE_FEATURES
 from spacy_crfsuite.dense_features import DenseFeatures
@@ -173,7 +172,7 @@ class CRFExtractor:
             CRFExtractor
         """
         if self.ent_tagger is None:
-            self.ent_tagger = sklearn_crfsuite.CRF(
+            self.ent_tagger = CRF(
                 algorithm=self.component_config["algorithm"],
                 c1=self.component_config["c1"],
                 c2=self.component_config["c2"],
@@ -210,6 +209,49 @@ class CRFExtractor:
             y_test, y_pred, labels=sorted_labels, digits=3
         )
         return f1_score, classification_report
+
+    def fine_tune(self, val_samples: List[List[CRFToken]], cv=3, n_iter=10, n_jobs=-1):
+        """Fine-tune hyper params (i.e L1/L2 regularization term).
+
+        Args:
+            val_samples (list): samples for cross-validation.
+            cv (int): optional, cross-validation K-fold.
+            n_iter (int): optional, num of iterations.
+            n_jobs (int): optional, num of threads (-1 = ``multiprocessing.cpu_count()``).
+
+        Returns:
+            a fitted instance of ``RandomizedSearchCV``.
+        """
+        import scipy
+
+        from sklearn.metrics import make_scorer
+        from sklearn.model_selection import RandomizedSearchCV
+
+        params_space = {
+            "c1": scipy.stats.expon(scale=0.5),
+            "c2": scipy.stats.expon(scale=0.05),
+        }
+        crf = CRF(
+            algorithm=self.component_config["algorithm"],
+            max_iterations=self.component_config["max_iter"],
+            all_possible_transitions=self.component_config["all_possible_transitions"],
+        )
+
+        X_train = [self._crf_tokens_to_features(sent) for sent in val_samples]
+        y_train = [self._crf_tokens_to_tags(sent) for sent in val_samples]
+        labels = list(set(itertools.chain.from_iterable(y_train)) - {"O"})
+        f1_scorer = make_scorer(metrics.flat_f1_score, average="weighted", labels=labels)
+        rs = RandomizedSearchCV(
+            crf,
+            params_space,
+            cv=cv,
+            verbose=1,
+            n_jobs=n_jobs,
+            n_iter=n_iter,
+            scoring=f1_scorer,
+        )
+        rs.fit(X_train, y_train)
+        return rs
 
     def _check_runtime(self):
         """Helper to check runtime before using component for predictions."""
