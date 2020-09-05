@@ -1,7 +1,0 @@
-TOKENS = "tokens"
-BILOU_ENTITIES = "bilou_entities"
-NO_ENTITY_TAG = "O"
-POS_TAG = "pos"
-CLS_TOKEN = "__CLS__"
-DENSE_FEATURES = "text_dense_features"
-PATTERN = "pattern"

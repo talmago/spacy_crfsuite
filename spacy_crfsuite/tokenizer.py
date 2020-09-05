@@ -3,8 +3,6 @@ import spacy
 from abc import ABCMeta, abstractmethod
 from typing import Text, Optional, Any, Dict, List
 
-from spacy_crfsuite.constants import CLS_TOKEN
-
 
 class Token:
     def __init__(
@@ -68,10 +66,19 @@ class SpacyTokenizer(Tokenizer):
         if attribute == "text":
             doc = self.nlp(doc)
 
-        return [
-            Token(t.text, t.idx, lemma=t.lemma_, data={"pos": self._tag_of_token(t), "shape": t.shape_})
+        tokens = [
+            Token(
+                t.text,
+                t.idx,
+                lemma=t.lemma_,
+                data={"pos": self._tag_of_token(t), "shape": t.shape_},
+            )
             for t in doc
         ]
+        # Add CLS token
+        idx = tokens[-1].end + 1
+        tokens.append(Token("__CLS__", idx))
+        return tokens
 
     @staticmethod
     def _tag_of_token(token: Any) -> Text:
@@ -81,9 +88,3 @@ class SpacyTokenizer(Tokenizer):
             return token._.get("tag")
         else:
             return token.tag_
-
-    @staticmethod
-    def add_cls_token(tokens: List[Token]) -> None:
-        # +1 to have a space between the last token and the __cls__ token
-        idx = tokens[-1].end + 1
-        tokens.append(Token(CLS_TOKEN, idx))

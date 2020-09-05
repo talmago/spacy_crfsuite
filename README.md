@@ -124,12 +124,16 @@ for ent in doc.ents:
 Or alternatively as a standalone component.
 
 ```python
-from spacy_crfsuite import CRFExtractor, prepare_example
+from spacy_crfsuite import CRFExtractor
+from spacy_crfsuite.tokenizer import SpacyTokenizer
 
 crf_extractor = CRFExtractor().from_disk("model/model.pkl")
-ex = {"text": "show mexican restaurents up north"}
-prepare_example(ex)
-crf_extractor.process(ex)
+tokenizer = SpacyTokenizer()
+
+example = {"text": "show mexican restaurents up north"}
+example["tokens"] = tokenizer.tokenize(example, attribute="text")
+
+crf_extractor.process(example)
 
 # Output:
 # [{'start': 5,

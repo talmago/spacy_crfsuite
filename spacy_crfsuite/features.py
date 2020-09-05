@@ -1,10 +1,9 @@
-from typing import NamedTuple, Text, Dict, Any, Optional, List
+from typing import NamedTuple, Text, Dict, Any, Optional, List, Union
 
 import numpy as np
 from wasabi import msg
 
 from spacy_crfsuite.bilou import get_entity_offsets, bilou_tags_from_offsets
-from spacy_crfsuite.constants import TOKENS, PATTERN, DENSE_FEATURES
 from spacy_crfsuite.tokenizer import Token
 
 
@@ -12,7 +11,7 @@ class CRFToken(NamedTuple):
     text: Text
     tag: Text
     entity: Text
-    shape: Text
+    shape: Union[Text, int]
     pattern: Dict[Text, Any]
     dense_features: np.ndarray
 
@@ -83,26 +82,25 @@ class Featurizer:
 
     @staticmethod
     def tokens_without_cls(message: Dict) -> List[Token]:
-        return message.get(TOKENS)[:-1]
+        return message.get("tokens")[:-1]
 
     @staticmethod
     def __pattern_of_token(message: Dict, i: int) -> Dict:
-        if message.get(TOKENS) is not None:
-            return message.get(TOKENS)[i].get(PATTERN, {})
+        if message.get("tokens") is not None:
+            return message.get("tokens")[i].get("pattern", {})
         else:
             return {}
 
     @staticmethod
     def __get_dense_features(message: Dict) -> Optional[List[Any]]:
-        features = message.get(DENSE_FEATURES)
+        features = message.get("text_dense_features")
         if features is None:
             return None
 
-        tokens = message.get(TOKENS, [])
+        tokens = message.get("tokens", [])
         if len(tokens) != len(features):
             msg and msg.warning(
-                f"Number of features ({len(features)}) for attribute "
-                f"'{DENSE_FEATURES}' "
+                f"Number of features ({len(features)}) for attribute 'text_dense_features' "
                 f"does not match number of tokens ({len(tokens)}). Set "
                 f"'return_sequence' to true in the corresponding featurizer in order "
                 f"to make use of the features in 'CRFEntityExtractor'."
@@ -115,6 +113,6 @@ class Featurizer:
             feature_dict = {
                 str(index): token_features for index, token_features in enumerate(feature)
             }
-            converted = {DENSE_FEATURES: feature_dict}
+            converted = {"text_dense_features": feature_dict}
             features_out.append(converted)
         return features_out

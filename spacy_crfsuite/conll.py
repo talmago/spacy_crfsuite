@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import List, TextIO, Iterator, Dict, Union
 
-from spacy_crfsuite.bilou import entity_name_from_tag
+from spacy_crfsuite.bilou import entity_name_from_tag, NO_ENTITY_TAG
 from spacy_crfsuite.tokenizer import Token
 
 
@@ -69,7 +69,7 @@ def _parse_block(buff: List[List[str]], iob=True) -> Dict:
         token = Token(word, idx, data={"pos": pos})
         tokens.append(token)
         idx += len(word) + 1
-        if tag != "O":
+        if tag != NO_ENTITY_TAG:
             if not iob:
                 tag = entity_name_from_tag(tag)
             entities.append(

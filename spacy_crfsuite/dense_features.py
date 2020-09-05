@@ -5,8 +5,6 @@ from typing import Text, Dict, Any, Optional
 
 from spacy.language import Language
 
-from spacy_crfsuite.constants import DENSE_FEATURES
-
 
 class Pooling:
     MEAN = "mean"
@@ -21,11 +19,13 @@ class DenseFeatures:
         self.nlp = nlp or spacy.load("en")
 
     def __call__(self, message: Dict, attribute: Text = "doc"):
-        doc = message[attribute]
-        if attribute == "text":
-            doc = self.nlp(doc)
-
-        features = np.array([t.vector for t in doc])
+        if attribute in ("doc", "tokens"):
+            tokens = message[attribute]
+        elif attribute == "text":
+            tokens = self.nlp(message["text"])
+        else:
+            raise AttributeError(attribute)
+        features = np.array([t.vector for t in tokens])
         cls_token_vec = self._calculate_cls_vector(features, self.pooling)
         features = np.concatenate([features, cls_token_vec])
         features = self._combine_with_existing_dense_features(message, features)
@@ -55,7 +55,7 @@ class DenseFeatures:
 
     @staticmethod
     def _combine_with_existing_dense_features(
-        message: Dict, additional_features: Any, feature_name: Text = DENSE_FEATURES
+        message: Dict, additional_features: Any, feature_name: Text = "text_dense_features"
     ) -> Any:
         if message.get(feature_name) is not None:
 

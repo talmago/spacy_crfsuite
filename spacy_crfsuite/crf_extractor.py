@@ -9,16 +9,12 @@ from sklearn_crfsuite import CRF, metrics
 from spacy.language import Language
 from spacy.tokens.doc import Doc
 
-from spacy_crfsuite.bilou import (
-    entity_name_from_tag,
-    bilou_prefix_from_tag,
-)
+from spacy_crfsuite.bilou import entity_name_from_tag, bilou_prefix_from_tag, NO_ENTITY_TAG
 
 from spacy_crfsuite.compat import msg
-from spacy_crfsuite.constants import TOKENS, DENSE_FEATURES
 from spacy_crfsuite.dense_features import DenseFeatures
 from spacy_crfsuite.features import CRFToken, Featurizer
-from spacy_crfsuite.tokenizer import Token, SpacyTokenizer, Tokenizer
+from spacy_crfsuite.tokenizer import Token, SpacyTokenizer
 from spacy_crfsuite.utils import override_defaults
 
 
@@ -48,7 +44,7 @@ class CRFExtractor:
                 "title",
                 "digit",
                 "pattern",
-                "shape"
+                "shape",
             ],
             ["low", "title", "upper"],
         ],
@@ -79,10 +75,8 @@ class CRFExtractor:
         "upper": lambda crf_token: crf_token.text.isupper(),
         "digit": lambda crf_token: crf_token.text.isdigit(),
         "shape": lambda crf_token: crf_token.shape,
-        "pattern": lambda crf_token: crf_token.pattern
-        if crf_token.pattern is not None
-        else None,
-        "text_dense_features": lambda crf_token: crf_token.dense_features,
+        "pattern": lambda crf_token: crf_token.pattern,
+        "dense_features": lambda crf_token: crf_token.dense_features,
     }
 
     def __init__(
@@ -133,7 +127,7 @@ class CRFExtractor:
             bool
         """
         for feature_list in self.component_config["features"]:
-            if DENSE_FEATURES in feature_list:
+            if "dense_features" in feature_list:
                 return True
         return False
 
@@ -156,11 +150,16 @@ class CRFExtractor:
         entities = self.ent_tagger.predict_marginals_single(features)
         return self._from_crf_to_json(example, entities)
 
-    def train(self, training_samples: List[List[CRFToken]]) -> "CRFExtractor":
+    def train(
+        self,
+        training_samples: List[List[CRFToken]],
+        dev_samples: Optional[List[List[CRFToken]]] = None,
+    ) -> "CRFExtractor":
         """Train the entity tagger with examples.
 
         Args:
             training_samples (list): list of training examples.
+            dev_samples (list): optional, list of dev examples.
 
         Returns:
             CRFExtractor
@@ -176,7 +175,15 @@ class CRFExtractor:
 
         X_train = [self._crf_tokens_to_features(sent) for sent in training_samples]
         y_train = [self._crf_tokens_to_tags(sent) for sent in training_samples]
-        self.ent_tagger.fit(X_train, y_train)
+
+        if dev_samples:
+            X_dev = [self._crf_tokens_to_features(sent) for sent in dev_samples]
+            y_dev = [self._crf_tokens_to_tags(sent) for sent in dev_samples]
+        else:
+            X_dev = None
+            y_dev = None
+
+        self.ent_tagger.fit(X_train, y_train, X_dev=X_dev, y_dev=y_dev)
         return self
 
     def eval(self, eval_samples: List[List[CRFToken]]) -> Optional[Tuple[Any, Text]]:
@@ -194,7 +201,7 @@ class CRFExtractor:
         y_test = [self._crf_tokens_to_tags(sent) for sent in eval_samples]
 
         labels = list(self.ent_tagger.classes_)
-        labels.remove("O")
+        labels.remove(NO_ENTITY_TAG)
         sorted_labels = sorted(labels, key=lambda name: (name[1:], name[0]))
 
         y_pred = self.ent_tagger.predict(X_test)
@@ -241,7 +248,7 @@ class CRFExtractor:
 
         X_train = [self._crf_tokens_to_features(sent) for sent in val_samples]
         y_train = [self._crf_tokens_to_tags(sent) for sent in val_samples]
-        labels = list(set(itertools.chain.from_iterable(y_train)) - {"O"})
+        labels = list(set(itertools.chain.from_iterable(y_train)) - {NO_ENTITY_TAG})
         f1_scorer = make_scorer(metrics.flat_f1_score, average="weighted", labels=labels)
         rs = RandomizedSearchCV(
             crf,
@@ -368,7 +375,7 @@ class CRFExtractor:
     @staticmethod
     def _tokens_without_cls(message: Dict) -> List[Token]:
         # [:-1] to remove the CLS token from the list of tokens
-        return message.get(TOKENS)[:-1]
+        return message.get("tokens")[:-1]
 
     def _find_bilou_end(self, word_idx, entities) -> Any:
         ent_word_idx = word_idx + 1
@@ -467,7 +474,7 @@ class CRFExtractor:
         for word_idx in range(len(tokens)):
             entity_label, confidence = self.most_likely_entity(word_idx, entities)
             word = tokens[word_idx]
-            if entity_label != "O":
+            if entity_label != NO_ENTITY_TAG:
                 ent = {
                     "start": word.start,
                     "end": word.end,
@@ -530,57 +537,6 @@ class CRFExtractor:
         return [crf_token.entity for crf_token in sentence]
 
 
-def _tokenize(message: Dict, tokenizer: Tokenizer, attribute: Text = "text") -> None:
-    """tokenize message."""
-    tokens = tokenizer.tokenize(message, attribute=attribute)
-    if isinstance(tokenizer, SpacyTokenizer):
-        tokenizer.add_cls_token(tokens)
-    message["tokens"] = tokens
-
-
-def prepare_example(
-    example: Dict,
-    featurizer: Optional[Featurizer] = None,
-    tokenizer: Optional[Tokenizer] = None,
-    dense_features: Optional[DenseFeatures] = None,
-) -> List[CRFToken]:
-    """Translate training example to CRF feature space.
-
-    Args:
-        example (dict): example dict. must have either "doc", "tokens" or "text" field.
-        featurizer (Featurizer): featurizer.
-        tokenizer (Tokenizer): tokenizer.
-        dense_features (DenseFeatures): dense features.
-
-    Returns:
-        List[CRFToken], CRF example.
-    """
-    if not example:
-        return []
-
-    tokenizer = tokenizer or SpacyTokenizer()
-    featurizer = featurizer or Featurizer()
-
-    if "tokens" in example:
-        pass
-    elif "doc" in example:
-        _tokenize(example, tokenizer, "doc")
-    elif "text" in example:
-        _tokenize(example, tokenizer, "text")
-    else:
-        raise ValueError(f"empty example: {example}")
-
-    if dense_features:
-        text_dense_features = dense_features(
-            example, attribute="doc" if "doc" in example else "text"
-        )
-        if len(text_dense_features) > 0:
-            example["text_dense_features"] = text_dense_features
-
-    entities = featurizer.apply_bilou_schema(example)
-    return featurizer(example, entities)
-
-
 class CRFEntityExtractor(object):
     """spaCy v2.0 pipeline component that sets entity annotations
     based on CRF (Conditional Random Field) estimator.
@@ -621,16 +577,14 @@ class CRFEntityExtractor(object):
                 "Did you call `.from_disk()` method ?"
             )
 
-        message = {"doc": doc, "text": doc.text}
-        prepare_example(
-            message, tokenizer=self.spacy_tokenizer, dense_features=self.dense_features
-        )
+        example = {"doc": doc, "text": doc.text}
+        example["tokens"] = self.spacy_tokenizer.tokenize(example, attribute="doc")
 
         spans = [
             doc.char_span(
                 entity_dict["start"], entity_dict["end"], label=entity_dict["entity"]
             )
-            for entity_dict in self.crf_extractor.process(message)
+            for entity_dict in self.crf_extractor.process(example)
         ]
 
         doc.ents = list(doc.ents) + spans

@@ -2,6 +2,7 @@ from typing import List, Tuple, Text, Optional, Dict, Set, Any
 from spacy_crfsuite.tokenizer import Token
 
 BILOU_PREFIXES = {"B-", "I-", "U-", "L-"}
+NO_ENTITY_TAG = "O"
 
 
 def get_entity_offsets(message: Dict) -> List[Tuple[int, int, Text]]:
@@ -61,7 +62,7 @@ def bilou_tags_from_offsets(
     """
     start_pos_to_token_idx = {token.start: i for i, token in enumerate(tokens)}
     end_pos_to_token_idx = {token.end: i for i, token in enumerate(tokens)}
-    bilou = ["O" for _ in tokens]
+    bilou = [NO_ENTITY_TAG for _ in tokens]
 
     _add_bilou_tags_to_entities(
         bilou, entities, end_pos_to_token_idx, start_pos_to_token_idx
