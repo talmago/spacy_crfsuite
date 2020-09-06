@@ -7,6 +7,7 @@ import srsly
 from wasabi import msg
 from typing import Optional, Dict, List
 
+from spacy_crfsuite.bilou import remove_bilou_prefixes
 from spacy_crfsuite.crf_extractor import CRFExtractor
 from spacy_crfsuite.dense_features import DenseFeatures
 from spacy_crfsuite.features import Featurizer, CRFToken
@@ -19,7 +20,7 @@ def crf_tokens(
     featurizer: Optional[Featurizer] = None,
     tokenizer: Optional[Tokenizer] = None,
     dense_features: Optional[DenseFeatures] = None,
-    apply_bilou: bool = True,
+    bilou: bool = True,
 ) -> List[CRFToken]:
     """Translate training example to CRF feature space.
 
@@ -56,7 +57,9 @@ def crf_tokens(
             example["text_dense_features"] = text_dense_features
 
     featurizer = featurizer or Featurizer()
-    entities = featurizer.apply_bilou_schema(example) if apply_bilou else None
+    entities = featurizer.apply_bilou_schema(example)
+    if not bilou:
+        remove_bilou_prefixes(entities)
     return featurizer(example, entities)
 
 
