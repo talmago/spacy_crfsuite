@@ -135,8 +135,7 @@ crf_extractor = CRFExtractor().from_disk("model/model.pkl")
 tokenizer = SpacyTokenizer()
 
 example = {"text": "show mexican restaurents up north"}
-example["tokens"] = tokenizer.tokenize(example, attribute="text")
-
+tokenizer.tokenize(example, attribute="text")
 crf_extractor.process(example)
 
 # Output:

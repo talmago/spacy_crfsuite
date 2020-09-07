@@ -4,32 +4,29 @@ import plac
 import spacy
 import srsly
 
-from wasabi import msg
 from typing import Optional, Dict, List
 
 from spacy_crfsuite.bilou import remove_bilou_prefixes
+from spacy_crfsuite.compat import msg
 from spacy_crfsuite.crf_extractor import CRFExtractor
-from spacy_crfsuite.dense_features import DenseFeatures
 from spacy_crfsuite.features import Featurizer, CRFToken
 from spacy_crfsuite.tokenizer import SpacyTokenizer, Tokenizer
 from spacy_crfsuite.utils import read_file
 
 
-def crf_tokens(
+def gold_example_to_crf_tokens(
     example: Dict,
-    featurizer: Optional[Featurizer] = None,
     tokenizer: Optional[Tokenizer] = None,
-    dense_features: Optional[DenseFeatures] = None,
+    use_dense_features: bool = False,
     bilou: bool = True,
 ) -> List[CRFToken]:
     """Translate training example to CRF feature space.
 
     Args:
         example (dict): example dict. must have either "doc", "tokens" or "text" field.
-        featurizer (Featurizer): featurizer.
         tokenizer (Tokenizer): tokenizer.
-        dense_features (DenseFeatures): dense features.
-        apply_bilou (bool): apply the bilou schema (used for gold standard example).
+        use_dense_features (bool): use dense features.
+        bilou (bool): apply bilou schema (for "gold" example).
 
     Returns:
         List[CRFToken], CRF example.
@@ -43,20 +40,12 @@ def crf_tokens(
     elif "text" in example:
         # Call a tokenizer to tokenize the message. Default is SpacyTokenizer.
         tokenizer = tokenizer or SpacyTokenizer()
-        example["tokens"] = tokenizer.tokenize(example, attribute="text")
+        tokenizer.tokenize(example, attribute="text")
     else:
         raise ValueError(
             f"Bad example: {example}. " f"Attribute ``text`` or ``tokens`` is missing."
         )
-
-    if dense_features:
-        text_dense_features = dense_features(
-            example, attribute="doc" if "doc" in example else "tokens"
-        )
-        if len(text_dense_features) > 0:
-            example["text_dense_features"] = text_dense_features
-
-    featurizer = featurizer or Featurizer()
+    featurizer = Featurizer(use_dense_features=use_dense_features)
     entities = featurizer.apply_bilou_schema(example)
     if not bilou:
         remove_bilou_prefixes(entities)
@@ -69,8 +58,16 @@ def crf_tokens(
     out_dir=("Path to output directory", "option", "o", str),
     config_file=("Path to config file (.json format)", "option", "c", str),
     spacy_model=("Name of spaCy model to use", "option", "lm", str),
+    fine_tune=("Fine tune hyper parameters before training.", "flag", "ft", bool),
 )
-def main(in_file, out_dir=None, model_file=None, config_file=None, spacy_model=None):
+def main(
+    in_file,
+    out_dir=None,
+    model_file=None,
+    config_file=None,
+    spacy_model=None,
+    fine_tune=False,
+):
     """Train CRF entity tagger."""
     if config_file:
         msg.info("Loading config from disk")
@@ -100,19 +97,21 @@ def main(in_file, out_dir=None, model_file=None, config_file=None, spacy_model=N
         msg.info(f"Using spaCy blank: 'en'")
 
     tokenizer = SpacyTokenizer(nlp=nlp)
-
-    if crf_extractor.use_dense_features():
-        dense_features = DenseFeatures(nlp)
-    else:
-        dense_features = None
-
-    train_crf_examples = [
-        crf_tokens(ex, tokenizer=tokenizer, dense_features=dense_features)
+    train_crf = [
+        gold_example_to_crf_tokens(
+            ex, tokenizer=tokenizer, use_dense_features=crf_extractor.use_dense_features()
+        )
         for ex in train_examples
     ]
 
+    if fine_tune:
+        msg.info("Fine-tuning hyper params.")
+        rs = crf_extractor.fine_tune(train_crf, cv=5, n_iter=30, random_state=42)
+        msg.good("Setting fine-tuned hyper params:", rs.best_params_)
+        crf_extractor.component_config.update(rs.best_params_)
+
     msg.info("Training entity tagger with CRF.")
-    crf_extractor.train(train_crf_examples)
+    crf_extractor.train(train_crf)
 
     model_path = pathlib.Path(out_dir or ".").resolve() / "model.pkl"
     msg.info("Saving model to disk")

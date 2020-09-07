@@ -1,19 +1,15 @@
 import warnings
-
-from spacy_crfsuite.train import crf_tokens
-
-warnings.simplefilter(action="ignore", category=FutureWarning)
-
 import plac
 import spacy
 import srsly
 
-from wasabi import msg
-
+from spacy_crfsuite.compat import msg
 from spacy_crfsuite.crf_extractor import CRFExtractor
-from spacy_crfsuite.dense_features import DenseFeatures
 from spacy_crfsuite.tokenizer import SpacyTokenizer
+from spacy_crfsuite.train import gold_example_to_crf_tokens
 from spacy_crfsuite.utils import read_file
+
+warnings.simplefilter(action="ignore", category=FutureWarning)
 
 
 @plac.annotations(
@@ -47,14 +43,10 @@ def main(in_file, model_file=None, config_file=None, spacy_model=None):
         msg.info(f"Using spaCy blank: 'en'")
 
     tokenizer = SpacyTokenizer(nlp=nlp)
-
-    if crf_extractor.use_dense_features():
-        dense_features = DenseFeatures(nlp)
-    else:
-        dense_features = None
-
     dev_crf_examples = [
-        crf_tokens(ex, tokenizer=tokenizer, dense_features=dense_features)
+        gold_example_to_crf_tokens(
+            ex, tokenizer=tokenizer, use_dense_features=crf_extractor.use_dense_features()
+        )
         for ex in dev_examples
     ]
 

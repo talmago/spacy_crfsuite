@@ -52,7 +52,7 @@ class Tokenizer:
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def tokenize(self, message: Dict, attribute: Text = "text") -> List[Token]:
+    def tokenize(self, message: Dict, attribute: Text = "text") -> None:
         raise NotImplementedError("should be implemented by subclass")
 
 
@@ -60,7 +60,7 @@ class SpacyTokenizer(Tokenizer):
     def __init__(self, nlp=None):
         self.nlp = nlp or spacy.blank("en")
 
-    def tokenize(self, message: Dict, attribute: Text = "text") -> List[Token]:
+    def tokenize(self, message: Dict, attribute: Text = "text") -> None:
         doc = message[attribute]
 
         if attribute == "text":
@@ -71,14 +71,18 @@ class SpacyTokenizer(Tokenizer):
                 t.text,
                 t.idx,
                 lemma=t.lemma_,
-                data={"pos": self._tag_of_token(t), "shape": t.shape_},
+                data={
+                    "pos": self._tag_of_token(t),
+                    "shape": t.shape_,
+                    "vector": t.vector if t.has_vector else None,
+                },
             )
             for t in doc
         ]
         # Add CLS token
         idx = tokens[-1].end + 1
         tokens.append(Token("__CLS__", idx))
-        return tokens
+        message["tokens"] = tokens
 
     @staticmethod
     def _tag_of_token(token: Any) -> Text:

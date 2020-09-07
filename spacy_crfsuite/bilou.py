@@ -1,4 +1,5 @@
-from typing import List, Tuple, Text, Optional, Dict, Set, Any
+from typing import List, Tuple, Text, Optional, Dict, Any
+
 from spacy_crfsuite.tokenizer import Token
 
 BILOU_PREFIXES = {"B-", "I-", "U-", "L-"}

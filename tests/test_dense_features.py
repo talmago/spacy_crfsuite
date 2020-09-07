@@ -1,15 +1,22 @@
-import pytest
 import spacy
 
-from spacy_crfsuite.dense_features import DenseFeatures
+from spacy_crfsuite.features import Featurizer
+from spacy_crfsuite.tokenizer import SpacyTokenizer
 
 
-@pytest.fixture()
-def nlp():
-    return spacy.load('en_core_web_sm')
+def test_dense_features():
+    nlp = spacy.load('en_core_web_sm')
+    message = {"text": "hello world"}
 
+    tokenizer = SpacyTokenizer(nlp)
+    tokenizer.tokenize(message)
 
-def test_dense_features_shape(nlp):
-    dense_features = DenseFeatures(nlp)
-    features = dense_features({"text": "hello world"}, attribute="text")
-    assert features.shape == (3, 96)
+    featurizer = Featurizer(use_dense_features=True)
+    dense_features = featurizer.get_dense_features(message)
+
+    assert len(dense_features) == 3
+    assert len(dense_features[0]["text_dense_features"]) == 96
+
+    featurizer = Featurizer(use_dense_features=False)
+    dense_features = featurizer.get_dense_features(message)
+    assert dense_features is None

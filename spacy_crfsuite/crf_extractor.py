@@ -12,14 +12,13 @@ from spacy.tokens.doc import Doc
 from spacy_crfsuite.bilou import entity_name_from_tag, bilou_prefix_from_tag, NO_ENTITY_TAG
 
 from spacy_crfsuite.compat import msg
-from spacy_crfsuite.dense_features import DenseFeatures
 from spacy_crfsuite.features import CRFToken, Featurizer
 from spacy_crfsuite.tokenizer import Token, SpacyTokenizer
 from spacy_crfsuite.utils import override_defaults
 
 
 class CRFExtractor:
-    defaults = {
+    defaults: Dict[str, Any] = {
         # BILOU_flag determines whether to use BILOU tagging or not.
         # More rigorous however requires more examples per entity
         # rule of thumb: use only if more than 100 egs. per entity
@@ -87,7 +86,7 @@ class CRFExtractor:
 
         self.component_config = override_defaults(self.defaults, component_config)
         self.ent_tagger = ent_tagger
-        self.featurizer = Featurizer()
+        self.featurizer = Featurizer(use_dense_features=self.use_dense_features())
 
     def from_disk(self, path: Union[Path, str] = "model.pkl") -> "CRFExtractor":
         """Load component from disk.
@@ -545,7 +544,7 @@ class CRFEntityExtractor(object):
     See ```CRFExtractor``` for CRF implementation details.
     """
 
-    name = "crf_entity_extractor"
+    name = "crf_ner"
 
     def __init__(self, nlp: Language, crf_extractor: Optional[CRFExtractor] = None):
         self.nlp = nlp
@@ -578,7 +577,14 @@ class CRFEntityExtractor(object):
             )
 
         example = {"doc": doc, "text": doc.text}
-        example["tokens"] = self.spacy_tokenizer.tokenize(example, attribute="doc")
+        self.spacy_tokenizer.tokenize(example, attribute="doc")
+
+        if self.dense_features is not None:
+            text_dense_features = self.dense_features(
+                example, attribute="doc" if "doc" in example else "tokens"
+            )
+            if len(text_dense_features) > 0:
+                example["text_dense_features"] = text_dense_features
 
         spans = [
             doc.char_span(
