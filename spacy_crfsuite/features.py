@@ -75,17 +75,14 @@ class Featurizer:
             return None
 
         tokens = self.tokens_without_cls(message)
-        features = [t.get("vector") for t in tokens]
-
-        if all([feature is not None for feature in features]):
+        features = [t.get("vector") for t in tokens if t.get("vector") is not None]
+        if len(features) > 0:
             features = np.vstack(features)
             pooling = self.cfg["dense_features_cls_pooling"]
             cls_token_vec = self._calculate_cls_vector(features, pooling)
             features = np.concatenate([features, cls_token_vec])
-
-        if len(tokens) + 1 != len(features):
+        if len(features) != len(tokens) + 1:
             return None
-
         # convert to python-crfsuite feature format
         features_out = []
         for feature in features:
@@ -94,7 +91,6 @@ class Featurizer:
             }
             converted = {"text_dense_features": feature_dict}
             features_out.append(converted)
-
         return features_out
 
     def apply_bilou_schema(self, message: Dict) -> List[Text]:

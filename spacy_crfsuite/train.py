@@ -5,9 +5,9 @@ import spacy
 import srsly
 
 from typing import Optional, Dict, List
+from wasabi import msg
 
 from spacy_crfsuite.bilou import remove_bilou_prefixes
-from spacy_crfsuite.compat import msg
 from spacy_crfsuite.crf_extractor import CRFExtractor
 from spacy_crfsuite.features import Featurizer, CRFToken
 from spacy_crfsuite.tokenizer import SpacyTokenizer, Tokenizer
@@ -26,7 +26,7 @@ def gold_example_to_crf_tokens(
         example (dict): example dict. must have either "doc", "tokens" or "text" field.
         tokenizer (Tokenizer): tokenizer.
         use_dense_features (bool): use dense features.
-        bilou (bool): apply bilou schema (for "gold" example).
+        bilou (bool): apply BILOU tags to example.
 
     Returns:
         List[CRFToken], CRF example.
@@ -34,18 +34,26 @@ def gold_example_to_crf_tokens(
     if not example:
         return []
 
+    tokenizer = tokenizer or SpacyTokenizer()
+    featurizer = Featurizer(use_dense_features=use_dense_features)
+
     if "tokens" in example:
-        # tokenized by 3rd party, nothing to do ..
-        pass
+        # tokenized by 3rd party, nothing to do .. except for dense feature addition (when needed)
+        if use_dense_features and isinstance(tokenizer, SpacyTokenizer):
+            for token in example["tokens"]:
+                vector = tokenizer.get_vector(token)
+                if vector is not None:
+                    token.set("vector", vector)
+
     elif "text" in example:
         # Call a tokenizer to tokenize the message. Default is SpacyTokenizer.
-        tokenizer = tokenizer or SpacyTokenizer()
         tokenizer.tokenize(example, attribute="text")
     else:
         raise ValueError(
             f"Bad example: {example}. " f"Attribute ``text`` or ``tokens`` is missing."
         )
-    featurizer = Featurizer(use_dense_features=use_dense_features)
+    # By default, JSON examples don't have a tagging schema like "BILOU".
+    # If they do, like in CoNLL datasets, we strip them after alignment.
     entities = featurizer.apply_bilou_schema(example)
     if not bilou:
         remove_bilou_prefixes(entities)
@@ -97,9 +105,10 @@ def main(
         msg.info(f"Using spaCy blank: 'en'")
 
     tokenizer = SpacyTokenizer(nlp=nlp)
+    use_dense_features = crf_extractor.use_dense_features()
     train_crf = [
         gold_example_to_crf_tokens(
-            ex, tokenizer=tokenizer, use_dense_features=crf_extractor.use_dense_features()
+            ex, tokenizer=tokenizer, use_dense_features=use_dense_features
         )
         for ex in train_examples
     ]

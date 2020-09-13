@@ -3,7 +3,8 @@ import plac
 import spacy
 import srsly
 
-from spacy_crfsuite.compat import msg
+from wasabi import msg
+
 from spacy_crfsuite.crf_extractor import CRFExtractor
 from spacy_crfsuite.tokenizer import SpacyTokenizer
 from spacy_crfsuite.train import gold_example_to_crf_tokens
@@ -43,9 +44,10 @@ def main(in_file, model_file=None, config_file=None, spacy_model=None):
         msg.info(f"Using spaCy blank: 'en'")
 
     tokenizer = SpacyTokenizer(nlp=nlp)
+    use_dense_features = crf_extractor.use_dense_features()
     dev_crf_examples = [
         gold_example_to_crf_tokens(
-            ex, tokenizer=tokenizer, use_dense_features=crf_extractor.use_dense_features()
+            ex, tokenizer=tokenizer, use_dense_features=use_dense_features
         )
         for ex in dev_examples
     ]

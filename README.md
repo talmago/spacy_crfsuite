@@ -30,7 +30,6 @@ from spacy_crfsuite import CRFEntityExtractor, CRFExtractor
 
 nlp = spacy.load("en_core_web_sm", disable=["ner"])
 crf_extractor = CRFExtractor().from_disk("spacy_crfsuite_conll03.bz2")
-
 pipe = CRFEntityExtractor(nlp, crf_extractor=crf_extractor)
 nlp.add_pipe(pipe)
 

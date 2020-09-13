@@ -1,5 +1,6 @@
 import itertools
 import joblib
+import warnings
 
 from collections import Counter
 from pathlib import Path
@@ -10,8 +11,6 @@ from spacy.language import Language
 from spacy.tokens.doc import Doc
 
 from spacy_crfsuite.bilou import entity_name_from_tag, bilou_prefix_from_tag, NO_ENTITY_TAG
-
-from spacy_crfsuite.compat import msg
 from spacy_crfsuite.features import CRFToken, Featurizer
 from spacy_crfsuite.tokenizer import Token, SpacyTokenizer
 from spacy_crfsuite.utils import override_defaults
@@ -27,8 +26,6 @@ class CRFExtractor:
         # after holding keys about which features to use for each token,
         # for example, 'title' in array before will have the feature
         # "is the preceding token in title case?"
-        # POS features require SpacyTokenizer
-        # pattern feature require RegexFeaturizer
         "features": [
             ["low", "title", "upper"],
             [
@@ -386,12 +383,11 @@ class CRFExtractor:
 
         while not finished:
             label, label_confidence = self.most_likely_entity(ent_word_idx, entities)
-
             confidence = min(confidence, label_confidence)
 
             if label[2:] != entity_label:
                 # words are not tagged the same entity class
-                msg and msg.info(
+                warnings.warn(
                     "Inconsistent BILOU tagging found, B- tag, L- "
                     "tag pair encloses multiple entity classes.i.e. "
                     "[B-a, I-b, L-a] instead of [B-a, I-a, L-a].\n"
@@ -408,7 +404,7 @@ class CRFExtractor:
                 # entity not closed by an L- tag
                 finished = True
                 ent_word_idx -= 1
-                msg and msg.info(
+                warnings.warn(
                     "Inconsistent BILOU tagging found, B- tag not "
                     "closed by L- tag, i.e [B-a, I-a, O] instead of "
                     "[B-a, L-a, O].\nAssuming last tag is L-"
@@ -551,11 +547,6 @@ class CRFEntityExtractor(object):
         self.crf_extractor = crf_extractor
         self.spacy_tokenizer = SpacyTokenizer(nlp)
 
-        if self.crf_extractor.use_dense_features():
-            self.dense_features = DenseFeatures(nlp)
-        else:
-            self.dense_features = None
-
     def __call__(self, doc: Doc):
         """Apply the pipeline component on a Doc object and modify it if matches
         are found. Return the Doc, so it can be processed by the next component
@@ -578,13 +569,6 @@ class CRFEntityExtractor(object):
 
         example = {"doc": doc, "text": doc.text}
         self.spacy_tokenizer.tokenize(example, attribute="doc")
-
-        if self.dense_features is not None:
-            text_dense_features = self.dense_features(
-                example, attribute="doc" if "doc" in example else "tokens"
-            )
-            if len(text_dense_features) > 0:
-                example["text_dense_features"] = text_dense_features
 
         spans = [
             doc.char_span(

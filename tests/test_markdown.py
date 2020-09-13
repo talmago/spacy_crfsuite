@@ -4,7 +4,7 @@ from spacy_crfsuite.markdown import MarkdownReader
 
 
 @pytest.fixture()
-def markdown_fmt():
+def example_md():
     return """## intent
     - what is my balance <!-- no entity -->
     - how much do I have on my [savings](source_account) <!-- entity "source_account" has value "savings" -->
@@ -12,10 +12,10 @@ def markdown_fmt():
     - Could I pay in [yen](currency)?  <!-- entity matched by lookup table -->"""
 
 
-def test_read_markdown(markdown_fmt):
+def test_read_markdown(example_md):
     md_reader = MarkdownReader()
 
-    assert md_reader(markdown_fmt) == [
+    assert md_reader(example_md) == [
         {'entities': [], 'text': 'what is my balance'},
         {'entities': [{'end': 32,
                        'entity': 'source_account',

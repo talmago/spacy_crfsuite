@@ -1,7 +1,8 @@
+import numpy as np
 import spacy
 
 from abc import ABCMeta, abstractmethod
-from typing import Text, Optional, Any, Dict, List
+from typing import Text, Optional, Any, Dict, Union
 
 
 class Token:
@@ -71,18 +72,30 @@ class SpacyTokenizer(Tokenizer):
                 t.text,
                 t.idx,
                 lemma=t.lemma_,
-                data={
-                    "pos": self._tag_of_token(t),
-                    "shape": t.shape_,
-                    "vector": t.vector if t.has_vector else None,
-                },
+                data={"pos": self._tag_of_token(t), "shape": t.shape_},
             )
             for t in doc
         ]
+
+        # Token -> Vec
+        for token in tokens:
+            vector = self.get_vector(token)
+            if vector is not None:
+                token.set("vector", vector)
+
         # Add CLS token
         idx = tokens[-1].end + 1
         tokens.append(Token("__CLS__", idx))
         message["tokens"] = tokens
+
+    def get_vector(self, token: Union[Text, Token]) -> Optional[np.ndarray]:
+        word_vec = None
+        if self.nlp.vocab.vectors_length > 0:
+            word = token.text if isinstance(token, Token) else token
+            word_hash = self.nlp.vocab.strings[word]
+            if word_hash in self.nlp.vocab.vectors:
+                word_vec = self.nlp.vocab.vectors[word_hash]
+        return word_vec
 
     @staticmethod
     def _tag_of_token(token: Any) -> Text:
