@@ -72,7 +72,7 @@ class CRFExtractor:
         "digit": lambda crf_token: crf_token.text.isdigit(),
         "shape": lambda crf_token: crf_token.shape,
         "pattern": lambda crf_token: crf_token.pattern,
-        "dense_features": lambda crf_token: crf_token.dense_features,
+        "dense_features": lambda crf_token: crf_token.dense_features
     }
 
     def __init__(

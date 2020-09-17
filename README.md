@@ -52,7 +52,7 @@ You can download a pre-trained model.
 
 | Dataset              |  F1   | 📥 Download                                                                                                                                                                                                                                                                                                   |
 | -------------------- | ------  | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [CoNLL03](https://github.com/talmago/spacy_crfsuite/blob/master/examples/02%20-%20CoNLL%202003.ipynb)            |   82% | [spacy_crfsuite_conll03.bz2](https://github.com/talmago/spacy_crfsuite/releases/download/v1.1.0/spacy_crfsuite_conll03.bz2) |
+| [CoNLL03](https://github.com/talmago/spacy_crfsuite/blob/master/examples/02%20-%20CoNLL%202003.ipynb)            |   82% | [spacy_crfsuite_conll03_sm.bz2](https://github.com/talmago/spacy_crfsuite/releases/download/v1.1.0/spacy_crfsuite_conll03_sm.bz2) |
 
 
 ### Train your own model
@@ -184,9 +184,11 @@ print(crf_extractor.explain())
 # 0.999976 U-cuisine  -1:low:me
 ```
 
+>**Notice**: You can also access the `crf_extractor` directly with ```nlp.get_pipe("crf_ner").crf_extractor```.
+
 ## Development
 
-Set up pip & virtualenv
+Set up virtualenv
 
 ```sh
 $ pipenv sync -d
@@ -198,7 +200,7 @@ Run unit test
 $ pipenv run pytest
 ```
 
-Run black (code formatter)
+Run black (code formatting)
 
 ```sh
 $ pipenv run black spacy_crfsuite/ --config=pyproject.toml
