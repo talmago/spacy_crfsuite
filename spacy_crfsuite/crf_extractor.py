@@ -578,15 +578,13 @@ class CRFEntityExtractor(object):
         ]
 
         doc.ents = list(doc.ents) + spans
-        for span in spans:
-            # Iterate over all spans and merge them into one token. This is done
-            # after setting the entities – otherwise, it would cause mismatched
-            # indices!
-            span.merge()
+        with doc.retokenize() as retokenizer:
+            for ent in doc.ents:
+                retokenizer.merge(ent)
 
         return doc
 
-    def from_disk(self, path: Union[Path, str]) -> "CRFEntityExtractor":
+    def from_disk(self, path: Union[Path, str], exclude = None) -> "CRFEntityExtractor":
         """Load crf extractor from disk.
 
         Args:

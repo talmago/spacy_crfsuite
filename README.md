@@ -27,11 +27,14 @@ import spacy
 
 from spacy_crfsuite import CRFEntityExtractor, CRFExtractor
 
+@Language.factory("ner-crf")
+def create_my_component(nlp, name):
+    crf_extractor = CRFExtractor().from_disk("spacy_crfsuite_conll03_sm.bz2")
+    return CRFEntityExtractor(nlp, crf_extractor=crf_extractor)
+
 
 nlp = spacy.load("en_core_web_sm", disable=["ner"])
-crf_extractor = CRFExtractor().from_disk("spacy_crfsuite_conll03_sm.bz2")
-pipe = CRFEntityExtractor(nlp, crf_extractor=crf_extractor)
-nlp.add_pipe(pipe)
+nlp.add_pipe("ner-crf")
 
 doc = nlp(
     "George Walker Bush (born July 6, 1946) is an American politician and businessman "
