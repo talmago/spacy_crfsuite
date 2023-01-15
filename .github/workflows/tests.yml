@@ -29,6 +29,7 @@ jobs:
           python -m pip install poetry
           poetry install
           poetry run spacy download en_core_web_sm
+          poetry run spacy download en_core_web_md
       - name: Run black
         run: |
           poetry run black --check spacy_crfsuite/ --config=pyproject.toml
