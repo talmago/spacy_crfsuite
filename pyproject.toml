@@ -1,3 +1,12 @@
+[tool.poetry]
+name = "spacy-crfsuite"
+version = "1.3.0"
+description = "spaCy pipeline component for CRF entity extraction"
+authors = ["Tal Almagor"]
+license = "MIT"
+readme = "README.md"
+packages = [{ include = "spacy_crfsuite" }]
+
 [tool.black]
 line-length = 91
 include = '\.pyi?$'
@@ -18,3 +27,25 @@ exclude = '''
   )/
 )
 '''
+
+[tool.poetry.dependencies]
+python = ">=3.8,<3.12"
+spacy = "^3.4.4"
+sklearn-crfsuite = "^0.3.6"
+joblib = "^1.2.0"
+scikit-learn = "^1.2.0"
+
+[tool.poetry.group.dev.dependencies]
+autopep8 = "^2.0.1"
+ipython = "^8.8.0"
+srsly = "^2.4.5"
+plac = "^1.3.5"
+jupyter = "^1.0.0"
+pytest = "^7.2.1"
+scipy = "^1.10.0"
+black = "^22.12.0"
+tqdm = "^4.64.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

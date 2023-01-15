@@ -9,6 +9,7 @@ from typing import Dict, Text, Any, Optional, List, Tuple, Union, Callable
 from sklearn_crfsuite import CRF, metrics
 from spacy.language import Language
 from spacy.tokens.doc import Doc
+from sklearn.metrics import classification_report, f1_score
 
 from spacy_crfsuite.bilou import entity_name_from_tag, bilou_prefix_from_tag, NO_ENTITY_TAG
 from spacy_crfsuite.features import CRFToken, Featurizer
@@ -72,7 +73,7 @@ class CRFExtractor:
         "digit": lambda crf_token: crf_token.text.isdigit(),
         "shape": lambda crf_token: crf_token.shape,
         "pattern": lambda crf_token: crf_token.pattern,
-        "dense_features": lambda crf_token: crf_token.dense_features
+        "dense_features": lambda crf_token: crf_token.dense_features,
     }
 
     def __init__(
@@ -189,23 +190,21 @@ class CRFExtractor:
             eval_samples (list): list of dev examples.
 
         Returns:
-            (f1_score<float>, classification_report<str>)
+            str, equivalent to output of ``sklearn.metrics.classification_report``
         """
         self._check_runtime()
 
         X_test = [self._crf_tokens_to_features(sent) for sent in eval_samples]
         y_test = [self._crf_tokens_to_tags(sent) for sent in eval_samples]
+        y_test = list(itertools.chain.from_iterable(y_test))
 
         labels = list(self.ent_tagger.classes_)
         labels.remove(NO_ENTITY_TAG)
         sorted_labels = sorted(labels, key=lambda name: (name[1:], name[0]))
 
         y_pred = self.ent_tagger.predict(X_test)
-        f1_score = metrics.flat_f1_score(y_test, y_pred, average="weighted", labels=labels)
-        classification_report = metrics.flat_classification_report(
-            y_test, y_pred, labels=sorted_labels, digits=3
-        )
-        return f1_score, classification_report
+        y_pred = list(itertools.chain.from_iterable(y_pred))
+        return classification_report(y_test, y_pred, labels=sorted_labels, digits=3)
 
     def fine_tune(
         self,
@@ -245,7 +244,7 @@ class CRFExtractor:
         X_train = [self._crf_tokens_to_features(sent) for sent in val_samples]
         y_train = [self._crf_tokens_to_tags(sent) for sent in val_samples]
         labels = list(set(itertools.chain.from_iterable(y_train)) - {NO_ENTITY_TAG})
-        f1_scorer = make_scorer(metrics.flat_f1_score, average="weighted", labels=labels)
+        f1_scorer = make_scorer(f1_score, average="weighted", labels=labels)
         rs = RandomizedSearchCV(
             crf,
             params_space,
@@ -584,7 +583,7 @@ class CRFEntityExtractor(object):
 
         return doc
 
-    def from_disk(self, path: Union[Path, str], exclude = None) -> "CRFEntityExtractor":
+    def from_disk(self, path: Union[Path, str], exclude=None) -> "CRFEntityExtractor":
         """Load crf extractor from disk.
 
         Args:

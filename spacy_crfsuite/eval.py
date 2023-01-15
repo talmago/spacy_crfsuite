@@ -51,10 +51,8 @@ def main(in_file, model_file=None, config_file=None, spacy_model=None):
         )
         for ex in dev_examples
     ]
-
-    f1_score, classification_report = crf_extractor.eval(dev_crf_examples)
-    msg.warn(f"f1 score: {f1_score}")
-    print(classification_report)
+    classification_report = crf_extractor.eval(dev_crf_examples)
+    msg.info("Classification Report:\n" + classification_report)
 
 
 if __name__ == "__main__":

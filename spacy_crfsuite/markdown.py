@@ -3,8 +3,7 @@ from typing import Text, Optional, List, Dict
 
 
 class MarkdownReader:
-    """A class to read MD format and translate (in-memory) into JSON format.
-    """
+    """A class to read MD format and translate (in-memory) into JSON format."""
 
     item_regex = re.compile(r"\s*[-*+]\s*(.+)")
     ent_regex = re.compile(
