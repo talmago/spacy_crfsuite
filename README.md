@@ -107,16 +107,21 @@ examples/example.md
 weighted avg      1.000     1.000     1.000        17
 ```
 
-Now we can use the tagger in a spaCy pipeline!
+Now we can use the tagger for named entity recognition in a spaCy pipeline!
 
 ```python
 import spacy
 
-from spacy_crfsuite import CRFEntityExtractor
+from spacy.language import Language
+from spacy_crfsuite import CRFEntityExtractor, CRFExtractor
 
-nlp = spacy.load('en_core_web_sm')
-pipe = CRFEntityExtractor(nlp).from_disk("model/model.pkl")
-nlp.add_pipe(pipe)
+@Language.factory("ner_crf")
+def create_component(nlp, name):
+    crf_extractor = CRFExtractor().from_disk("model/model.pkl")
+    return CRFEntityExtractor(nlp, crf_extractor=crf_extractor)
+
+nlp = spacy.load("en_core_web_sm", disable=["ner"])
+nlp.add_pipe("ner_crf")
 
 doc = nlp("show mexican restaurents up north")
 for ent in doc.ents:
@@ -127,7 +132,7 @@ for ent in doc.ents:
 # north -- location
 ```
 
-Or alternatively as a standalone component.
+Or alternatively as a standalone component
 
 ```python
 from spacy_crfsuite import CRFExtractor
