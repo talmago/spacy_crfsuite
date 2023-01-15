@@ -25,16 +25,16 @@ pip install spacy_crfsuite
 ```python
 import spacy
 
+from spacy.language import Language
 from spacy_crfsuite import CRFEntityExtractor, CRFExtractor
 
-@Language.factory("ner-crf")
-def create_my_component(nlp, name):
+@Language.factory("ner_crf")
+def create_component(nlp, name):
     crf_extractor = CRFExtractor().from_disk("spacy_crfsuite_conll03_sm.bz2")
     return CRFEntityExtractor(nlp, crf_extractor=crf_extractor)
 
-
 nlp = spacy.load("en_core_web_sm", disable=["ner"])
-nlp.add_pipe("ner-crf")
+nlp.add_pipe("ner_crf")
 
 doc = nlp(
     "George Walker Bush (born July 6, 1946) is an American politician and businessman "
@@ -93,7 +93,7 @@ model/model.pkl
 examples/example.md
 ✔ Successfully loaded 15 dev examples.
 ℹ Using spaCy model: en_core_web_sm
-⚠ f1 score: 1.0
+ℹ Classification Report:
               precision    recall  f1-score   support
 
    B-cuisine      1.000     1.000     1.000         2
@@ -191,20 +191,21 @@ print(crf_extractor.explain())
 
 ## Development
 
-Set up virtualenv
+Set up env
 
 ```sh
-$ pipenv sync -d
+$ poetry install
+$ poetry run spacy download en_core_web_sm
 ```
 
 Run unit test
 
 ```sh
-$ pipenv run pytest
+$ poetry run pytest
 ```
 
 Run black (code formatting)
 
 ```sh
-$ pipenv run black spacy_crfsuite/ --config=pyproject.toml
+$ poetry run black spacy_crfsuite/ --config=pyproject.toml
 ```

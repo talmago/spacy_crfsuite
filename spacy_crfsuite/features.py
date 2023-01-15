@@ -24,8 +24,8 @@ class CRFToken(NamedTuple):
 class Featurizer:
     """Translate text into a list of CRF tokens using the BILOU schema.
 
-     It must be called after the pre-processing step,
-     either by spaCy or external source (ConLL file)."""
+    It must be called after the pre-processing step,
+    either by spaCy or external source (ConLL file)."""
 
     cfg: Dict[str, Any] = {
         "use_dense_features": False,
