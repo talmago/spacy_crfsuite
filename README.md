@@ -55,10 +55,15 @@ for ent in doc.ents:
 
 ### Visualization (via [Gradio](https://gradio.app/named_entity_recognition/))
 
+Run the command below to launch Gradio playground
+
 ```sh
 $ pip install gradio
 $ python spacy_crfsuite/visualize.py
 ```
+
+![](https://github.com/talmago/spacy_crfsuite/blob/4efda1ddc0d7212a5768c5e54ec44f9397618bc8/img/gradio.png)
+
 
 ### Pre-trained models
 
