@@ -6,11 +6,13 @@ Copied from [Rasa NLU](https://github.com/RasaHQ/rasa/blob/master/rasa/nlu/extra
 
 ## ✨ Features
 
-- Simple but tough to beat **CRF entity tagger** (via [sklearn-crfsuite](https://github.com/TeamHG-Memex/sklearn-crfsuite))
+- Simple but tough to beat **CRF entity tagger** (
+  via [sklearn-crfsuite](https://github.com/TeamHG-Memex/sklearn-crfsuite))
 - **spaCy NER component**
 - **Command line interface** for training & evaluation and **example notebook**
-- [CoNLL](https://www.aclweb.org/anthology/W03-0419/), JSON and [Markdown](https://rasa.com/docs/rasa/nlu/training-data-format/#id5) **annotations**
-- Pre-trained NER component 
+- [CoNLL](https://www.aclweb.org/anthology/W03-0419/), JSON
+  and [Markdown](https://rasa.com/docs/rasa/nlu/training-data-format/#id5) **annotations**
+- Pre-trained NER component
 
 ## ⏳ Installation
 
@@ -28,10 +30,12 @@ import spacy
 from spacy.language import Language
 from spacy_crfsuite import CRFEntityExtractor, CRFExtractor
 
+
 @Language.factory("ner_crf")
 def create_component(nlp, name):
     crf_extractor = CRFExtractor().from_disk("spacy_crfsuite_conll03_sm.bz2")
     return CRFEntityExtractor(nlp, crf_extractor=crf_extractor)
+
 
 nlp = spacy.load("en_core_web_sm", disable=["ner"])
 nlp.add_pipe("ner_crf")
@@ -49,22 +53,32 @@ for ent in doc.ents:
 # United States - LOC
 ```
 
+### Visualization (via [Gradio](https://gradio.app/named_entity_recognition/))
+
+Run the command below to launch a Gradio playground
+
+```sh
+$ pip install gradio
+$ python spacy_crfsuite/visualize.py
+```
+
+![](https://github.com/talmago/spacy_crfsuite/blob/master/img/gradio.png)
+
+
 ### Pre-trained models
 
 You can download a pre-trained model.
 
-| Dataset              |  F1   | 📥 Download                                                                                                                                                                                                                                                                                                   |
-| -------------------- | ------  | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [CoNLL03](https://github.com/talmago/spacy_crfsuite/blob/master/examples/02%20-%20CoNLL%202003.ipynb)            |   82% | [spacy_crfsuite_conll03_sm.bz2](https://github.com/talmago/spacy_crfsuite/releases/download/v1.1.0/spacy_crfsuite_conll03_sm.bz2) |
-
+| Dataset                                                                                               | F1  | 📥 Download                                                                                                                       |
+|-------------------------------------------------------------------------------------------------------|-----|-----------------------------------------------------------------------------------------------------------------------------------|
+| [CoNLL03](https://github.com/talmago/spacy_crfsuite/blob/master/examples/02%20-%20CoNLL%202003.ipynb) | 82% | [spacy_crfsuite_conll03_sm.bz2](https://github.com/talmago/spacy_crfsuite/releases/download/v1.1.0/spacy_crfsuite_conll03_sm.bz2) |
 
 ### Train your own model
 
-Let's train a simple model for restaurent search bot with [markdown 
-annotations](https://github.com/talmago/spacy_crfsuite/blob/master/examples/restaurent_search.md) and the command line. 
-You can also try this [notebook](https://github.com/talmago/spacy_crfsuite/blob/master/examples/01%20-%20Custom%20Component.ipynb).
+Below is a command line to train a simple model for restaurants search bot with [markdown
+annotations](https://github.com/talmago/spacy_crfsuite/blob/master/examples/restaurent_search.md) and save it to disk.
+If you prefer working on jupyter, follow this [notebook](https://github.com/talmago/spacy_crfsuite/blob/master/examples/01%20-%20Custom%20Component.ipynb).
 
-So we start by training a model and saving it to disk.
 
 ```sh
 $ python -m spacy_crfsuite.train examples/restaurent_search.md -c examples/default-config.json -o model/ -lm en_core_web_sm
@@ -81,7 +95,7 @@ examples/restaurent_search.md
 model/model.pkl
 ```
 
-We can also evaluate on a dev set to get f1 & classification report. Below we use the training examples.
+Below is a command line to test the CRF model and print the classification report (In the example we use the training set, however normally we would use a held out set).
 
 ```sh
 $ python -m spacy_crfsuite.eval examples/restaurent_search.md -m model/model.pkl -lm en_core_web_sm
@@ -115,10 +129,12 @@ import spacy
 from spacy.language import Language
 from spacy_crfsuite import CRFEntityExtractor, CRFExtractor
 
+
 @Language.factory("ner_crf")
 def create_component(nlp, name):
     crf_extractor = CRFExtractor().from_disk("model/model.pkl")
     return CRFEntityExtractor(nlp, crf_extractor=crf_extractor)
+
 
 nlp = spacy.load("en_core_web_sm", disable=["ner"])
 nlp.add_pipe("ner_crf")
@@ -192,7 +208,51 @@ print(crf_extractor.explain())
 # 0.999976 U-cuisine  -1:low:me
 ```
 
->**Notice**: You can also access the `crf_extractor` directly with ```nlp.get_pipe("crf_ner").crf_extractor```.
+> **Notice**: You can also access the `crf_extractor` directly with ```nlp.get_pipe("crf_ner").crf_extractor```.
+
+### Deploy to a web server
+
+Start a web service
+
+```sh
+$ pip install uvicorn
+$ uvicorn spacy_crfsuite.serve:app --host 127.0.0.1 --port 5000
+```
+
+>Notice: Set `$SPACY_MODEL` and `$CRF_MODEL` in your environment to control the server configurations
+
+cURL example
+
+```sh
+$ curl -X POST http://127.0.0.1:5000/parse -H 'Content-Type: application/json' -d '{"text": "George Walker Bush (born July 6, 1946) is an American politician and businessman who served as the 43rd president of the United States from 2001 to 2009."}'
+{
+  "data": [
+    {
+      "text": "George Walker Bush (born July 6, 1946) is an American politician and businessman who served as the 43rd president of the United States from 2001 to 2009.",
+      "entities": [
+        {
+          "start": 0,
+          "end": 18,
+          "value": "George Walker Bush",
+          "entity": "PER"
+        },
+        {
+          "start": 45,
+          "end": 53,
+          "value": "American",
+          "entity": "MISC"
+        },
+        {
+          "start": 121,
+          "end": 134,
+          "value": "United States",
+          "entity": "LOC"
+        }
+      ]
+    }
+  ]
+}
+```
 
 ## Development
 
