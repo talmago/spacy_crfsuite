@@ -1,17 +1,18 @@
 import itertools
 import joblib
 import warnings
+import sklearn_crfsuite
 
 from collections import Counter
 from pathlib import Path
 from typing import Dict, Text, Any, Optional, List, Tuple, Union, Callable
 
-from sklearn_crfsuite import CRF, metrics
 from spacy.language import Language
 from spacy.tokens.doc import Doc
 from sklearn.metrics import classification_report, f1_score
 
 from spacy_crfsuite.bilou import entity_name_from_tag, bilou_prefix_from_tag, NO_ENTITY_TAG
+from spacy_crfsuite.compat import CRF
 from spacy_crfsuite.features import CRFToken, Featurizer
 from spacy_crfsuite.tokenizer import Token, SpacyTokenizer
 from spacy_crfsuite.utils import override_defaults
@@ -99,7 +100,7 @@ class CRFExtractor:
             IOError
         """
         ent_tagger = joblib.load(path)
-        assert isinstance(ent_tagger, CRF)
+        assert isinstance(ent_tagger, sklearn_crfsuite.estimator.CRF)
 
         self.ent_tagger = ent_tagger
         return self
