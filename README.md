@@ -2,7 +2,7 @@
 
 Sequence tagging with spaCy and crfsuite.
 
-Copied from [Rasa NLU](https://github.com/RasaHQ/rasa/blob/master/rasa/nlu/extractors/crf_entity_extractor.py).
+A port of [Rasa NLU](https://github.com/RasaHQ/rasa/blob/master/rasa/nlu/extractors/crf_entity_extractor.py).
 
 ## ✨ Features
 
