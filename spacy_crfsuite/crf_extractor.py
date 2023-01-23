@@ -99,10 +99,15 @@ class CRFExtractor:
         Raises:
             IOError
         """
-        ent_tagger = joblib.load(path)
-        assert isinstance(ent_tagger, sklearn_crfsuite.estimator.CRF)
+        state_dict = joblib.load(path)
 
-        self.ent_tagger = ent_tagger
+        if isinstance(state_dict, sklearn_crfsuite.estimator.CRF):
+            self.ent_tagger = state_dict
+
+        elif isinstance(state_dict, dict):
+            for attr, attr_value in state_dict.items():
+                setattr(self, attr, attr_value)
+
         return self
 
     def to_disk(self, path: Union[Path, str] = "model.pkl") -> None:
@@ -115,7 +120,12 @@ class CRFExtractor:
             RuntimeError - if entity tagger is not fitted for runtime.
         """
         self._check_runtime()
-        joblib.dump(self.ent_tagger, path)
+
+        state_dict = {
+            "component_config": self.component_config,
+            "ent_tagger": self.ent_tagger,
+        }
+        joblib.dump(state_dict, path)
 
     def use_dense_features(self) -> bool:
         """A predicate to test if dense features should be used, according
