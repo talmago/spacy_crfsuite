@@ -54,6 +54,29 @@ def read_file(path: Union[Path, str], **kwargs) -> List[Dict]:
             md_reader = MarkdownReader()
             return md_reader(f.read(), **kwargs)
 
+    elif ext in (".yml", ".yaml"):
+        from spacy_crfsuite.markdown import MarkdownReader
+
+        # quite the same as YAML with minor-ish differences
+        examples = []
+        md_reader = MarkdownReader()
+
+        try:
+            data = srsly.read_yaml(path)["nlu"]
+        except (ValueError, IndexError):
+            raise ValueError(
+                f"Can't read examples from YAML file: ({path}). "
+                f"Expecting YAML to have a property for ``nlu``."
+            )
+
+        for example_group in data:
+            if isinstance(example_group["examples"], str):
+                examples += md_reader(example_group["examples"])
+            elif isinstance(example_group["examples"], list):
+                examples += [md_reader.parse_item(ex) for ex in example_group["examples"]]
+
+        return examples
+
     elif ext in (".txt", ".conll"):
         from spacy_crfsuite.conll import read_conll
 
