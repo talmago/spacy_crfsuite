@@ -2,6 +2,7 @@ import itertools
 import joblib
 import warnings
 import sklearn_crfsuite
+import sklearn_crfsuite.metrics as _metrics
 
 from collections import Counter
 from pathlib import Path
@@ -9,9 +10,14 @@ from typing import Dict, Text, Any, Optional, List, Tuple, Union, Callable
 
 from spacy.language import Language
 from spacy.tokens.doc import Doc
-from sklearn.metrics import classification_report, f1_score
+from sklearn.metrics import classification_report
 
-from spacy_crfsuite.bilou import entity_name_from_tag, bilou_prefix_from_tag, NO_ENTITY_TAG
+from spacy_crfsuite.bilou import (
+    entity_name_from_tag,
+    bilou_prefix_from_tag,
+    NO_ENTITY_TAG,
+    BILOU_PREFIXES,
+)
 from spacy_crfsuite.compat import CRF
 from spacy_crfsuite.features import CRFToken, Featurizer
 from spacy_crfsuite.tokenizer import Token, SpacyTokenizer
@@ -254,8 +260,13 @@ class CRFExtractor:
 
         X_train = [self._crf_tokens_to_features(sent) for sent in val_samples]
         y_train = [self._crf_tokens_to_tags(sent) for sent in val_samples]
-        labels = list(set(itertools.chain.from_iterable(y_train)) - {NO_ENTITY_TAG})
-        f1_scorer = make_scorer(f1_score, average="weighted", labels=labels)
+
+        labels = set(itertools.chain.from_iterable(y_train)) - {NO_ENTITY_TAG}
+        labels = list(labels)
+
+        f1_scorer = make_scorer(
+            _metrics.flat_f1_score, average="weighted", labels=labels, zero_division=1
+        )
         rs = RandomizedSearchCV(
             crf,
             params_space,

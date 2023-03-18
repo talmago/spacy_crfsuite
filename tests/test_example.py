@@ -40,10 +40,8 @@ def test_example(spacy_crfsuite_conll03_sm):
         "George Walker Bush (born July 6, 1946) is an American politician and businessman "
         "who served as the 43rd president of the United States from 2001 to 2009.")
 
-    for ent in doc.ents:
-        print(ent, "-", ent.label_)
-
-    # Output:
-    # George Walker Bush - PER
-    # American - MISC
-    # United States - LOC
+    assert [(ent.text, ent.label_) for ent in doc.ents] == [
+        ('George Walker Bush', 'PER'),
+        ('American', 'MISC'),
+        ('United States', 'LOC')
+    ]
